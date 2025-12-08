@@ -1,144 +1,602 @@
-
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
-  <title>FMU Web Runner (FMPy + Flask)</title>
+  <title>FMU Web Runner</title>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  style.css
-  <!-- Plotly for quick charting -->
-  https://cdn.plot.ly/plotly-2.35.2.min.js</script>
+  <style>
+    * { box-sizing: border-box; }
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; 
+      margin: 0; 
+      background: #f5f7fa; 
+      color: #2d3748; 
+      line-height: 1.6;
+    }
+    header { 
+      background: linear-gradient(135deg, #ff0000 0%, #000000 100%); 
+      color: #fff; 
+      padding: 20px 24px; 
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    h1 { margin: 0; font-size: 24px; font-weight: 600; }
+    .container { max-width: 1400px; margin: 0 auto; padding: 0 16px; }
+    .card { 
+      background: #fff; 
+      margin: 20px 0; 
+      padding: 24px; 
+      border-radius: 12px; 
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+      border: 1px solid #e2e8f0;
+    }
+    .card h2 { 
+      margin: 0 0 20px 0; 
+      font-size: 18px; 
+      font-weight: 600; 
+      color: #1a202c;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .card h2::before {
+      content: '';
+      display: inline-block;
+      width: 4px;
+      height: 20px;
+      background: linear-gradient(135deg, #ff0000 0%, #000000 100%);
+      border-radius: 2px;
+    }
+    
+    .upload-area {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    
+    input[type="file"] {
+      padding: 10px 16px;
+      border: 2px dashed #cbd5e0;
+      border-radius: 8px;
+      background: #f7fafc;
+      cursor: pointer;
+      flex: 1;
+      min-width: 250px;
+    }
+    input[type="file"]:hover {
+      border-color: #667eea;
+      background: #edf2f7;
+    }
+    
+    button { 
+      background: linear-gradient(135deg, #ff0000 0%, #000000 100%);
+      border: none; 
+      color: #fff; 
+      padding: 10px 24px; 
+      border-radius: 8px; 
+      cursor: pointer; 
+      font-weight: 500;
+      font-size: 14px;
+      transition: all 0.2s;
+      box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
+    }
+    button:hover { 
+      transform: translateY(-1px);
+      box-shadow: 0 4px 8px rgba(102, 126, 234, 0.4);
+    }
+    button:active {
+      transform: translateY(0);
+    }
+    
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+    
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    
+    .form-group label {
+      font-size: 13px;
+      font-weight: 500;
+      color: #4a5568;
+    }
+    
+    .form-group input,
+    .form-group select {
+      padding: 10px 12px;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      font-size: 14px;
+      background: #fff;
+      transition: all 0.2s;
+    }
+    
+    .form-group input:focus,
+    .form-group select:focus {
+      outline: none;
+      border-color: #ff0000;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+    
+    .form-group textarea {
+      padding: 10px 12px;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      font-size: 13px;
+      font-family: ui-monospace, Menlo, Consolas, monospace;
+      background: #f7fafc;
+      min-height: 100px;
+      resize: vertical;
+    }
+    
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      background: #f7fafc;
+      border-radius: 6px;
+      border: 1px solid #e2e8f0;
+    }
+    
+    .checkbox-group input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+    }
+    
+    .checkbox-group label {
+      margin: 0;
+      cursor: pointer;
+      user-select: none;
+    }
+    
+    .section-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: #2d3748;
+      margin: 20px 0 12px 0;
+      padding-bottom: 8px;
+      border-bottom: 2px solid #e2e8f0;
+    }
+    
+    .actions {
+      display: flex;
+      gap: 12px;
+      margin-top: 20px;
+      flex-wrap: wrap;
+    }
+    
+    .btn-secondary {
+      background: #718096;
+      box-shadow: 0 2px 4px rgba(113, 128, 150, 0.3);
+    }
+    
+    .btn-secondary:hover {
+      box-shadow: 0 4px 8px rgba(113, 128, 150, 0.4);
+    }
+    
+    pre { 
+      background: #f7fafc; 
+      padding: 16px; 
+      border-radius: 8px; 
+      overflow: auto; 
+      font-size: 13px;
+      border: 1px solid #e2e8f0;
+      margin: 0;
+    }
+    
+    details {
+      margin-top: 16px;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 12px;
+      background: #f7fafc;
+    }
+    
+    details summary {
+      cursor: pointer;
+      font-weight: 500;
+      color: #4a5568;
+      user-select: none;
+      padding: 4px;
+    }
+    
+    details[open] summary {
+      margin-bottom: 12px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    
+    #chart {
+      width: 100%;
+      height: 450px;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    
+    #downloads {
+      margin-top: 16px;
+      padding: 12px;
+      background: #f7fafc;
+      border-radius: 8px;
+      border: 1px solid #e2e8f0;
+    }
+    
+    #downloads a {
+      color: #667eea;
+      text-decoration: none;
+      font-weight: 500;
+      margin-right: 16px;
+    }
+    
+    #downloads a:hover {
+      text-decoration: underline;
+    }
+    
+    .status-message {
+      padding: 12px 16px;
+      border-radius: 8px;
+      margin-top: 12px;
+      font-size: 14px;
+    }
+    
+    .status-success {
+      background: #c6f6d5;
+      color: #22543d;
+      border: 1px solid #9ae6b4;
+    }
+    
+    .status-error {
+      background: #fed7d7;
+      color: #742a2a;
+      border: 1px solid #fc8181;
+    }
+    
+    .array-input {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    
+    .array-item {
+      padding: 8px;
+      background: #edf2f7;
+      border-radius: 4px;
+      font-family: ui-monospace, Menlo, Consolas, monospace;
+      font-size: 12px;
+    }
+  </style>
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
 </head>
 <body>
   <header>
-    <h1>FMU Web Runner</h1>
+    <div class="container">
+      <h1>FMU Runner</h1>
+    </div>
   </header>
 
-  <section class="card">
-    <h2>1) Upload FMU</h2>
-    <input id="fmuFile" type="file" accept=".fmu"/>
-    <button id="btnUpload">Upload</button>
-    <pre id="uploadStatus"></pre>
-  </section>
-
-  <section class="card">
-    <h2>2) Config (edit JSON)</h2>
-    <div class="row">
-      <textarea id="configText" spellcheck="false"></textarea>
-      <div class="sidebar">
-        <button id="btnRun">Run Simulation</button>
-        <label><input type="checkbox" id="debugLogging"> debug_logging</label>
-        <label><input type="checkbox" id="validate" checked> validate</label>
+  <div class="container">
+    <div class="card">
+      <h2>Upload FMU</h2>
+      <div class="upload-area">
+        <input id="fmuFile" type="file" accept=".fmu"/>
+        <button id="btnUpload">Upload FMU</button>
       </div>
+      <div id="uploadStatus"></div>
     </div>
-    <details style="margin-top:8px;">
-      <summary>FMU Variables (from metadata)</summary>
-      <pre id="varsDump"></pre>
-    </details>
-    <details>
-      <summary>FMU Info</summary>
-      <pre id="fmuInfo"></pre>
-    </details>
-  </section>
 
-  <section class="card">
-    <h2>3) Results</h2>
-    <div id="chart" style="width:100%;height:420px;"></div>
-    <div id="downloads"></div>
-    <details>
-      <summary>Logs</summary>
-      <pre id="logs"></pre>
-    </details>
-  </section>
+    <div class="card">
+      <h2>Configuration</h2>
+      
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Start Time</label>
+          <input type="number" id="start_time" step="any" value="0.0">
+        </div>
+        
+        <div class="form-group">
+          <label>Stop Time</label>
+          <input type="number" id="stop_time" step="any" value="600.0">
+        </div>
+        
+        <div class="form-group">
+          <label>Step Size</label>
+          <input type="number" id="step_size" step="any" value="0.01">
+        </div>
+        
+        <div class="form-group">
+          <label>Solver</label>
+          <select id="solver">
+            <option value="CVode">CVode</option>
+            <option value="Euler">Euler</option>
+          </select>
+        </div>
+        
+        <div class="form-group">
+          <label>Relative Tolerance</label>
+          <input type="number" id="relative_tolerance" step="any" value="0.00001">
+        </div>
+        
+        <div class="form-group">
+          <label>Timeout (seconds)</label>
+          <input type="number" id="timeout" value="60">
+        </div>
+      </div>
+
+      <div class="section-title">Options</div>
+      <div class="form-grid">
+        <div class="checkbox-group">
+          <input type="checkbox" id="record_events" checked>
+          <label for="record_events">Record Events</label>
+        </div>
+        
+        <div class="checkbox-group">
+          <input type="checkbox" id="validate" checked>
+          <label for="validate">Validate</label>
+        </div>
+        
+        <div class="checkbox-group">
+          <input type="checkbox" id="debug_logging">
+          <label for="debug_logging">Debug Logging</label>
+        </div>
+        
+        <div class="checkbox-group">
+          <input type="checkbox" id="set_stop_time" checked>
+          <label for="set_stop_time">Set Stop Time</label>
+        </div>
+        
+        <div class="checkbox-group">
+          <input type="checkbox" id="visible">
+          <label for="visible">Visible</label>
+        </div>
+      </div>
+
+      <div class="section-title">Start Values (JSON)</div>
+      <div class="form-group">
+        <textarea id="start_values" placeholder='{"param1": 1.0, "param2": 2.0}'>{}</textarea>
+      </div>
+
+      <div class="section-title">Inputs (JSON)</div>
+      <div class="form-group">
+        <textarea id="inputs" placeholder='[["q", [[0.0, 0.0]]]]'>[]</textarea>
+      </div>
+
+      <div class="section-title">Outputs (comma-separated)</div>
+      <div class="form-group">
+        <input type="text" id="outputs" placeholder="x, v, p" value="x, v, p">
+      </div>
+
+      <div class="form-grid" style="margin-top: 20px;">
+        <div class="form-group">
+          <label>Output CSV File</label>
+          <input type="text" id="output_csv" value="result.csv">
+        </div>
+        
+        <div class="form-group">
+          <label>Plot PNG File</label>
+          <input type="text" id="plot_png" value="result.png">
+        </div>
+      </div>
+
+      <div class="actions">
+        <button id="btnRun">▶ Run Simulation</button>
+        <button class="btn-secondary" id="btnViewJson">View JSON</button>
+      </div>
+
+      <details>
+        <summary>FMU Variables (from metadata)</summary>
+        <pre id="varsDump">Upload an FMU to see variables</pre>
+      </details>
+      
+      <details>
+        <summary>FMU Info</summary>
+        <pre id="fmuInfo">Upload an FMU to see info</pre>
+      </details>
+    </div>
+
+    <div class="card">
+      <h2>Results</h2>
+      <div id="chart"></div>
+      <div id="downloads"></div>
+      <details>
+        <summary>Simulation Logs</summary>
+        <pre id="logs">No logs yet</pre>
+      </details>
+    </div>
+  </div>
 
   <script>
     const $ = (id) => document.getElementById(id);
 
+    // Helper to gather config from form
+    function getConfig() {
+      const outputs = $('outputs').value.split(',').map(s => s.trim()).filter(Boolean);
+      
+      let startValues = {};
+      try {
+        const sv = $('start_values').value.trim();
+        if (sv) startValues = JSON.parse(sv);
+      } catch (e) {
+        alert('Start Values is not valid JSON: ' + e.message);
+        throw e;
+      }
+      
+      let inputs = [];
+      try {
+        const inp = $('inputs').value.trim();
+        if (inp) inputs = JSON.parse(inp);
+      } catch (e) {
+        alert('Inputs is not valid JSON: ' + e.message);
+        throw e;
+      }
+      
+      return {
+        fmu: null, // will be set by backend
+        start_time: parseFloat($('start_time').value),
+        stop_time: parseFloat($('stop_time').value),
+        step_size: parseFloat($('step_size').value),
+        solver: $('solver').value,
+        relative_tolerance: parseFloat($('relative_tolerance').value),
+        record_events: $('record_events').checked,
+        fmi_type: null,
+        start_values: startValues,
+        inputs: inputs,
+        outputs: outputs,
+        validate: $('validate').checked,
+        timeout: parseInt($('timeout').value),
+        debug_logging: $('debug_logging').checked,
+        visible: $('visible').checked,
+        set_stop_time: $('set_stop_time').checked,
+        output_csv: $('output_csv').value,
+        plot_png: $('plot_png').value
+      };
+    }
+
+    // Helper to populate form from config
+    function setConfig(cfg) {
+      $('start_time').value = cfg.start_time || 0;
+      $('stop_time').value = cfg.stop_time || 600;
+      $('step_size').value = cfg.step_size || 0.01;
+      $('solver').value = cfg.solver || 'CVode';
+      $('relative_tolerance').value = cfg.relative_tolerance || 0.00001;
+      $('timeout').value = cfg.timeout || 60;
+      $('record_events').checked = cfg.record_events !== false;
+      $('validate').checked = cfg.validate !== false;
+      $('debug_logging').checked = cfg.debug_logging || false;
+      $('set_stop_time').checked = cfg.set_stop_time !== false;
+      $('visible').checked = cfg.visible || false;
+      $('start_values').value = JSON.stringify(cfg.start_values || {}, null, 2);
+      $('inputs').value = JSON.stringify(cfg.inputs || [], null, 2);
+      $('outputs').value = (cfg.outputs || []).join(', ');
+      $('output_csv').value = cfg.output_csv || 'result.csv';
+      $('plot_png').value = cfg.plot_png || 'result.png';
+    }
+
     $('btnUpload').onclick = async () => {
       const file = $('fmuFile').files[0];
-      if (!file) { $('uploadStatus').textContent = 'Choose a .fmu first.'; return; }
-      const fd = new FormData();
-      fd.append('file', file);
-      $('uploadStatus').textContent = 'Uploading...';
-      const res = await fetch('/api/upload-fmu', { method: 'POST', body: fd });
-      const js = await res.json();
-      if (!js.ok) {
-        $('uploadStatus').textContent = 'Upload failed: ' + (js.error || 'unknown');
+      if (!file) {
+        $('uploadStatus').innerHTML = '<div class="status-message status-error">Please select a .fmu file first.</div>';
         return;
       }
-      $('uploadStatus').textContent = 'Uploaded OK.\nHost platform: ' + js.template.platform;
-      $('configText').value = JSON.stringify(js.template.config, null, 2);
-      $('varsDump').textContent = JSON.stringify(js.template.variables, null, 2);
-      $('fmuInfo').textContent = js.template.info;
+      
+      const fd = new FormData();
+      fd.append('file', file);
+      $('uploadStatus').innerHTML = '<div class="status-message">Uploading...</div>';
+      
+      try {
+        const res = await fetch('/api/upload-fmu', { method: 'POST', body: fd });
+        const js = await res.json();
+        
+        if (!js.ok) {
+          $('uploadStatus').innerHTML = '<div class="status-message status-error">Upload failed: ' + (js.error || 'unknown') + '</div>';
+          return;
+        }
+        
+        $('uploadStatus').innerHTML = '<div class="status-message status-success">✓ Uploaded successfully<br>Host platform: ' + js.template.platform + '</div>';
+        
+        // Populate form with template config
+        if (js.template.config) {
+          setConfig(js.template.config);
+        }
+        
+        $('varsDump').textContent = JSON.stringify(js.template.variables, null, 2);
+        $('fmuInfo').textContent = js.template.info;
+      } catch (e) {
+        $('uploadStatus').innerHTML = '<div class="status-message status-error">Error: ' + e.message + '</div>';
+      }
+    };
+
+    $('btnViewJson').onclick = () => {
+      try {
+        const cfg = getConfig();
+        alert(JSON.stringify(cfg, null, 2));
+      } catch (e) {
+        // Error already shown by getConfig
+      }
     };
 
     $('btnRun').onclick = async () => {
       let cfg;
       try {
-        cfg = JSON.parse($('configText').value);
+        cfg = getConfig();
       } catch (e) {
-        alert('Config is not valid JSON: ' + e.message);
-        return;
+        return; // Error already shown
       }
-      cfg.debug_logging = $('debugLogging').checked;
-      cfg.validate = $('validate').checked;
 
-      $('logs').textContent = 'Running...';
-      $('downloads').textContent = '';
+      $('logs').textContent = 'Running simulation...';
+      $('downloads').innerHTML = '';
       Plotly.purge('chart');
 
-      const res = await fetch('/api/run', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(cfg)
-      });
-      const js = await res.json();
-
-      if (!js.ok) {
-        $('logs').textContent = (js.logs || []).join('\n') + '\n\nERROR: ' + js.error + '\n' + (js.trace || '');
-        alert('Run failed. See logs below.');
-        return;
-      }
-
-      // Show logs
-      $('logs').textContent = (js.logs || []).join('\n');
-
-      // Plot: try to plot all outputs except 'time'
-      const cols = js.columns || [];
-      const rows = js.rows || [];
-      const time = rows.map(r => r.time !== undefined ? r.time : r[cols[0]]); // fallback
-      const traces = [];
-
-      cols.forEach((c) => {
-        if (c === 'time') return;
-        traces.push({
-          x: time,
-          y: rows.map(r => r[c]),
-          mode: 'lines',
-          name: c
+      try {
+        const res = await fetch('/api/run', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(cfg)
         });
-      });
+        const js = await res.json();
 
-      if (traces.length > 0) {
-        Plotly.newPlot('chart', traces, {
-          title: 'Outputs',
-          xaxis: { title: 'time [s]' },
-          yaxis: { title: 'value' },
-          legend: { orientation: 'h' }
-        }, {responsive: true});
-      } else {
-        $('logs').textContent += '\n(No plottable outputs returned.)';
-      }
+        if (!js.ok) {
+          $('logs').textContent = (js.logs || []).join('\n') + '\n\n❌ ERROR: ' + js.error + '\n' + (js.trace || '');
+          alert('Simulation failed. Check logs below.');
+          return;
+        }
 
-      // Links
-      const dl = [];
-      if (js.csv) {
-        dl.push(`/api/download?path=${encodeURIComponent(js.csv)}Download CSV</a>`);
+        // Show logs
+        $('logs').textContent = (js.logs || []).join('\n') + '\n\n✓ Simulation completed successfully';
+
+        // Plot results
+        const cols = js.columns || [];
+        const rows = js.rows || [];
+        const time = rows.map(r => r.time !== undefined ? r.time : r[cols[0]]);
+        const traces = [];
+
+        cols.forEach((c) => {
+          if (c === 'time') return;
+          traces.push({
+            x: time,
+            y: rows.map(r => r[c]),
+            mode: 'lines',
+            name: c,
+            line: { width: 2 }
+          });
+        });
+
+        if (traces.length > 0) {
+          Plotly.newPlot('chart', traces, {
+            title: { text: 'Simulation Results', font: { size: 16, weight: 600 } },
+            xaxis: { title: 'Time [s]', gridcolor: '#e2e8f0' },
+            yaxis: { title: 'Value', gridcolor: '#e2e8f0' },
+            legend: { orientation: 'h', y: -0.15 },
+            paper_bgcolor: '#ffffff',
+            plot_bgcolor: '#f7fafc',
+            margin: { t: 50, b: 60, l: 60, r: 40 }
+          }, {responsive: true});
+        } else {
+          $('logs').textContent += '\n\n⚠ No plottable outputs returned.';
+        }
+
+        // Download links
+        const dl = [];
+        if (js.csv) {
+          dl.push(`<a href="/api/download?path=${encodeURIComponent(js.csv)}">Download CSV</a>`);
+        }
+        if (js.png) {
+          dl.push(`<a href="/api/download?path=${encodeURIComponent(js.png)}">Download Plot PNG</a>`);
+        }
+        if (dl.length > 0) {
+          $('downloads').innerHTML = '<strong>Downloads:</strong> ' + dl.join(' | ');
+        }
+      } catch (e) {
+        $('logs').textContent = 'Network error: ' + e.message;
+        alert('Network error occurred. Check logs.');
       }
-      if (js.png) {
-        dl.push(`/api/download?path=${encodeURIComponent(js.png)}Download Plot PNG</a>`);
-      }
-      $('downloads').innerHTML = dl.join(' | ');
     };
   </script>
 </body>
