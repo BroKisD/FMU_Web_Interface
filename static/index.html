@@ -1,0 +1,145 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <title>FMU Web Runner (FMPy + Flask)</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  style.css
+  <!-- Plotly for quick charting -->
+  https://cdn.plot.ly/plotly-2.35.2.min.js</script>
+</head>
+<body>
+  <header>
+    <h1>FMU Web Runner</h1>
+  </header>
+
+  <section class="card">
+    <h2>1) Upload FMU</h2>
+    <input id="fmuFile" type="file" accept=".fmu"/>
+    <button id="btnUpload">Upload</button>
+    <pre id="uploadStatus"></pre>
+  </section>
+
+  <section class="card">
+    <h2>2) Config (edit JSON)</h2>
+    <div class="row">
+      <textarea id="configText" spellcheck="false"></textarea>
+      <div class="sidebar">
+        <button id="btnRun">Run Simulation</button>
+        <label><input type="checkbox" id="debugLogging"> debug_logging</label>
+        <label><input type="checkbox" id="validate" checked> validate</label>
+      </div>
+    </div>
+    <details style="margin-top:8px;">
+      <summary>FMU Variables (from metadata)</summary>
+      <pre id="varsDump"></pre>
+    </details>
+    <details>
+      <summary>FMU Info</summary>
+      <pre id="fmuInfo"></pre>
+    </details>
+  </section>
+
+  <section class="card">
+    <h2>3) Results</h2>
+    <div id="chart" style="width:100%;height:420px;"></div>
+    <div id="downloads"></div>
+    <details>
+      <summary>Logs</summary>
+      <pre id="logs"></pre>
+    </details>
+  </section>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+
+    $('btnUpload').onclick = async () => {
+      const file = $('fmuFile').files[0];
+      if (!file) { $('uploadStatus').textContent = 'Choose a .fmu first.'; return; }
+      const fd = new FormData();
+      fd.append('file', file);
+      $('uploadStatus').textContent = 'Uploading...';
+      const res = await fetch('/api/upload-fmu', { method: 'POST', body: fd });
+      const js = await res.json();
+      if (!js.ok) {
+        $('uploadStatus').textContent = 'Upload failed: ' + (js.error || 'unknown');
+        return;
+      }
+      $('uploadStatus').textContent = 'Uploaded OK.\nHost platform: ' + js.template.platform;
+      $('configText').value = JSON.stringify(js.template.config, null, 2);
+      $('varsDump').textContent = JSON.stringify(js.template.variables, null, 2);
+      $('fmuInfo').textContent = js.template.info;
+    };
+
+    $('btnRun').onclick = async () => {
+      let cfg;
+      try {
+        cfg = JSON.parse($('configText').value);
+      } catch (e) {
+        alert('Config is not valid JSON: ' + e.message);
+        return;
+      }
+      cfg.debug_logging = $('debugLogging').checked;
+      cfg.validate = $('validate').checked;
+
+      $('logs').textContent = 'Running...';
+      $('downloads').textContent = '';
+      Plotly.purge('chart');
+
+      const res = await fetch('/api/run', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(cfg)
+      });
+      const js = await res.json();
+
+      if (!js.ok) {
+        $('logs').textContent = (js.logs || []).join('\n') + '\n\nERROR: ' + js.error + '\n' + (js.trace || '');
+        alert('Run failed. See logs below.');
+        return;
+      }
+
+      // Show logs
+      $('logs').textContent = (js.logs || []).join('\n');
+
+      // Plot: try to plot all outputs except 'time'
+      const cols = js.columns || [];
+      const rows = js.rows || [];
+      const time = rows.map(r => r.time !== undefined ? r.time : r[cols[0]]); // fallback
+      const traces = [];
+
+      cols.forEach((c) => {
+        if (c === 'time') return;
+        traces.push({
+          x: time,
+          y: rows.map(r => r[c]),
+          mode: 'lines',
+          name: c
+        });
+      });
+
+      if (traces.length > 0) {
+        Plotly.newPlot('chart', traces, {
+          title: 'Outputs',
+          xaxis: { title: 'time [s]' },
+          yaxis: { title: 'value' },
+          legend: { orientation: 'h' }
+        }, {responsive: true});
+      } else {
+        $('logs').textContent += '\n(No plottable outputs returned.)';
+      }
+
+      // Links
+      const dl = [];
+      if (js.csv) {
+        dl.push(`/api/download?path=${encodeURIComponent(js.csv)}Download CSV</a>`);
+      }
+      if (js.png) {
+        dl.push(`/api/download?path=${encodeURIComponent(js.png)}Download Plot PNG</a>`);
+      }
+      $('downloads').innerHTML = dl.join(' | ');
+    };
+  </script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+
+body { font-family: system-ui, Arial, sans-serif; margin: 0; background: #f7f7fb; color: #222; }
+header { background: #1f6feb; color: #fff; padding: 14px 20px; }
+h1 { margin: 0; font-size: 20px; }
+.card { background: #fff; margin: 16px; padding: 16px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+.row { display: flex; gap: 12px; }
+textarea#configText { width: 100%; min-height: 280px; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 13px; padding: 10px; }
+.sidebar { min-width: 200px; display: flex; flex-direction: column; gap: 8px; }
+pre { background: #f3f4f6; padding: 10px; border-radius: 6px; overflow: auto; }
+button { background: #1f6feb; border: none; color: #fff; padding: 8px 12px; border-radius: 6px; cursor: pointer; }
+button:hover { opacity: 0.9; }
+input[type="file"] { margin-right: 8px; }
+#downloads a { margin-right: 12px; }
