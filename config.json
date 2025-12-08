@@ -1,28 +1,19 @@
 {
-  "fmu": "C:\\Users\\PKN6HC\\Desktop\\Test_FMU\\Samples\\TE142x---FMU-Samples-main\\PneumaticCylinderModel2.fmu",
+  "fmu": "C:\\Users\\PKN6HC\\Desktop\\Test_FMU\\Samples\\TE142x---FMU-Samples-main\\Rectifier.fmu",
   "start_time": 0.0,
-  "stop_time": 600.0,
+  "stop_time": 0.1,
   "step_size": 0.01,
-  "solver": "CVode",
+  "solver": null,
   "relative_tolerance": 1e-05,
   "record_events": true,
   "fmi_type": null,
-  "start_values": {},
-  "inputs": [
-    [
-      "q",
-      [
-        [
-          0.0,
-          0.0
-        ]
-      ]
-    ]
-  ],
+  "start_values": {
+    "minsamplestep": "2.50000000000000000e-02",
+    "binfilename": "DISABLED"
+  },
+  "inputs": [],
   "outputs": [
-    "x",
-    "v",
-    "p"
+    "outputs"
   ],
   "validate": true,
   "timeout": 60,
