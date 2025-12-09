@@ -1,4 +1,6 @@
-python=3.12
-plotly -> plotly.js
+plotly 
 flask 
-numpy -> numjs
+numpy 
+pandas 
+fmpy 
+pyyaml
