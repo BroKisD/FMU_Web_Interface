@@ -1,4 +1,3 @@
-
 #!/usr/bin/env python3
 import os
 import io
@@ -159,13 +158,24 @@ def generate_template(fmu_path: str) -> Dict[str, Any]:
         "set_stop_time": True,
 
         "output_csv": "result.csv",
-        "plot_png": "result.png"
     }
-    return {"config": cfg, "variables": groups, "fmiVersion": md.fmiVersion,
-            "provides": {"coSimulation": md.coSimulation is not None,
-                         "modelExchange": md.modelExchange is not None},
-            "platform": fmpy_platform(),
-            "info": fmu_info(fmu_path)}
+    return {
+        "config": cfg, 
+        "variables": groups, 
+        "fmiVersion": md.fmiVersion,
+        "provides": {
+            "coSimulation": md.coSimulation is not None,
+            "modelExchange": md.modelExchange is not None
+        },
+        "platform": fmpy_platform,  # Using the correct variable name
+        "info": {
+            "fmiVersion": md.fmiVersion,
+            "modelName": getattr(md, 'modelName', 'Unknown'),
+            "description": getattr(md, 'description', 'No description available'),
+            "generationTool": getattr(md, 'generationTool', 'Unknown'),
+            "generationDateAndTime": getattr(md, 'generationDateAndTime', 'Unknown')
+        }
+    }
 
 
 def make_fmi_call_logger(buffer: List[str]):
@@ -192,27 +202,69 @@ def index():
 
 @app.post('/api/upload-fmu')
 def upload_fmu():
-    if 'file' not in request.files:
-        return jsonify({"error": "No file"}), 400
-    file = request.files['file']
-    if not file.filename.lower().endswith('.fmu'):
-        return jsonify({"error": "Only .fmu files allowed"}), 400
-
-    td = tempfile.mkdtemp(prefix="fmu_")
-    fmu_path = os.path.join(td, file.filename)
-    file.save(fmu_path)
-
     try:
+        print("Debug: Starting file upload")
+        if 'file' not in request.files:
+            print("Debug: No file part in request")
+            return jsonify({"error": "No file"}), 400
+            
+        file = request.files['file']
+        print(f"Debug: Received file: {file.filename}")
+        
+        if not file or file.filename == '':
+            print("Debug: No file selected")
+            return jsonify({"error": "No file selected"}), 400
+            
+        if not file.filename.lower().endswith('.fmu'):
+            print("Debug: Invalid file type")
+            return jsonify({"error": "Only .fmu files allowed"}), 400
+
+        # Create uploads directory if it doesn't exist
+        upload_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')
+        print(f"Debug: Creating/verifying upload directory: {upload_dir}")
+        os.makedirs(upload_dir, exist_ok=True)
+        
+        # Create a unique filename to prevent collisions
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        safe_filename = f"{timestamp}_{file.filename}"
+        fmu_path = os.path.join(upload_dir, safe_filename)
+        print(f"Debug: Saving to {fmu_path}")
+        
+        # Save the file
+        file.save(fmu_path)
+        print("Debug: File saved successfully")
+        
+        # Generate template
+        print("Debug: Generating template...")
         tmpl = generate_template(fmu_path)
+        print("Debug: Template generated successfully")
+        
         # Remember last FMU
         SESSION['fmu_path'] = fmu_path
+        print("Debug: Upload and processing completed successfully")
         return jsonify({"ok": True, "template": tmpl, "fmuPath": fmu_path})
+        
     except Exception as e:
-        return jsonify({"ok": False, "error": str(e), "trace": traceback.format_exc()}), 500
+        print(f"Debug: Error in upload_fmu: {str(e)}")
+        print(f"Debug: Traceback: {traceback.format_exc()}")
+        # Clean up if file was partially written
+        if 'fmu_path' in locals() and os.path.exists(fmu_path):
+            try:
+                os.remove(fmu_path)
+                print(f"Debug: Removed partially uploaded file: {fmu_path}")
+            except Exception as cleanup_error:
+                print(f"Debug: Error during cleanup: {str(cleanup_error)}")
+        return jsonify({
+            "ok": False, 
+            "error": str(e), 
+            "type": type(e).__name__,
+            "trace": traceback.format_exc()
+        }), 500
 
 
 @app.post('/api/run')
 def run_simulation():
+    print("Running simulation")
     payload = request.get_json(force=True)
     fmu_path = payload.get("fmu") or SESSION.get("fmu_path")
     if not fmu_path or not os.path.exists(fmu_path):
@@ -241,8 +293,6 @@ def run_simulation():
         output=payload.get("outputs"),
         timeout=payload.get("timeout"),
         debug_logging=payload.get("debug_logging"),
-        visible=payload.get("visible"),
-        set_stop_time=payload.get("set_stop_time", True),
         fmi_call_logger=fmi_logger
     )
     # Only add input if we have signals
@@ -254,11 +304,10 @@ def run_simulation():
 
     try:
         # Optional validation
-        if payload.get("validate", True):
-            problems = validate_fmu(fmu_path)
-            if problems:
-                for p in problems:
-                    logs.append(f"[VALIDATION] [{p.severity}] {p.message}")
+        problems = validate_fmu(fmu_path)
+        if problems:
+            for p in problems:
+                logs.append(f"{p}")
 
         result = simulate_fmu(**kwargs)
 
@@ -269,28 +318,16 @@ def run_simulation():
         out_csv = os.path.join(os.path.dirname(fmu_path), f"result_{ts}.csv")
         df.to_csv(out_csv, index=False)
 
-        # Optional PNG plot
-        out_png = None
-        if payload.get("plot_png"):
-            try:
-                from matplotlib import pyplot as plt
-                plot_result(result)
-                out_png = os.path.join(os.path.dirname(fmu_path), f"plot_{ts}.png")
-                plt.savefig(out_png, dpi=150, bbox_inches='tight')
-                plt.close()
-            except Exception as e:
-                logs.append(f"[PLOT] Failed: {e}")
-
-        # Return a small preview to the UI and download links
-        preview_rows = min(len(df), 500)
+       
         return jsonify({
             "ok": True,
             "columns": df.columns.tolist(),
-            "rows": df.head(preview_rows).to_dict(orient="records"),
+            "rows": df.to_dict(orient="records"),          # full data
             "csv": out_csv,
-            "png": out_png,
-            "logs": logs
+            "logs": logs,
+            "total_rows": len(df)
         })
+
     except Exception as e:
         # Surface common TwinCAT dependency hint if present
         msg = str(e)

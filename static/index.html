@@ -214,11 +214,22 @@
       border-bottom: 1px solid #e2e8f0;
     }
     
-    #chart {
+    .chart-container {
       width: 100%;
-      height: 450px;
+      margin-bottom: 24px;
+      padding: 16px;
+      background: #fff;
       border-radius: 8px;
-      overflow: hidden;
+      border: 1px solid #e2e8f0;
+    }
+    
+    .chart-container:last-child {
+      margin-bottom: 0;
+    }
+    
+    .chart {
+      width: 100%;
+      height: 400px;
     }
     
     #downloads {
@@ -338,27 +349,12 @@
         </div>
         
         <div class="checkbox-group">
-          <input type="checkbox" id="validate" checked>
-          <label for="validate">Validate</label>
-        </div>
-        
-        <div class="checkbox-group">
           <input type="checkbox" id="debug_logging">
           <label for="debug_logging">Debug Logging</label>
-        </div>
-        
-        <div class="checkbox-group">
-          <input type="checkbox" id="set_stop_time" checked>
-          <label for="set_stop_time">Set Stop Time</label>
-        </div>
-        
-        <div class="checkbox-group">
-          <input type="checkbox" id="visible">
-          <label for="visible">Visible</label>
-        </div>
+        </div>  
       </div>
 
-      <div class="section-title">Start Values (JSON)</div>
+    <div class="section-title">Start Values (JSON)</div>
       <div class="form-group">
         <textarea id="start_values" placeholder='{"param1": 1.0, "param2": 2.0}'>{}</textarea>
       </div>
@@ -377,11 +373,6 @@
         <div class="form-group">
           <label>Output CSV File</label>
           <input type="text" id="output_csv" value="result.csv">
-        </div>
-        
-        <div class="form-group">
-          <label>Plot PNG File</label>
-          <input type="text" id="plot_png" value="result.png">
         </div>
       </div>
 
@@ -403,7 +394,7 @@
 
     <div class="card">
       <h2>Results</h2>
-      <div id="chart"></div>
+      <div id="chartsContainer"></div>
       <div id="downloads"></div>
       <details>
         <summary>Simulation Logs</summary>
@@ -449,13 +440,9 @@
         start_values: startValues,
         inputs: inputs,
         outputs: outputs,
-        validate: $('validate').checked,
         timeout: parseInt($('timeout').value),
         debug_logging: $('debug_logging').checked,
-        visible: $('visible').checked,
-        set_stop_time: $('set_stop_time').checked,
         output_csv: $('output_csv').value,
-        plot_png: $('plot_png').value
       };
     }
 
@@ -468,15 +455,11 @@
       $('relative_tolerance').value = cfg.relative_tolerance || 0.00001;
       $('timeout').value = cfg.timeout || 60;
       $('record_events').checked = cfg.record_events !== false;
-      $('validate').checked = cfg.validate !== false;
       $('debug_logging').checked = cfg.debug_logging || false;
-      $('set_stop_time').checked = cfg.set_stop_time !== false;
-      $('visible').checked = cfg.visible || false;
       $('start_values').value = JSON.stringify(cfg.start_values || {}, null, 2);
       $('inputs').value = JSON.stringify(cfg.inputs || [], null, 2);
       $('outputs').value = (cfg.outputs || []).join(', ');
       $('output_csv').value = cfg.output_csv || 'result.csv';
-      $('plot_png').value = cfg.plot_png || 'result.png';
     }
 
     $('btnUpload').onclick = async () => {
@@ -532,7 +515,7 @@
 
       $('logs').textContent = 'Running simulation...';
       $('downloads').innerHTML = '';
-      Plotly.purge('chart');
+      $('chartsContainer').innerHTML = '';
 
       try {
         const res = await fetch('/api/run', {
@@ -543,52 +526,89 @@
         const js = await res.json();
 
         if (!js.ok) {
-          $('logs').textContent = (js.logs || []).join('\n') + '\n\n❌ ERROR: ' + js.error + '\n' + (js.trace || '');
+          $('logs').textContent = (js.logs || []).join('\n') + '\n\n ERROR: ' + js.error + '\n' + (js.trace || '');
           alert('Simulation failed. Check logs below.');
           return;
         }
 
         // Show logs
-        $('logs').textContent = (js.logs || []).join('\n') + '\n\n✓ Simulation completed successfully';
+        $('logs').textContent = (js.logs || []).join('\n') + '\n\n Simulation completed successfully';
 
-        // Plot results
+        // Plot results - separate graph for each output
         const cols = js.columns || [];
         const rows = js.rows || [];
         const time = rows.map(r => r.time !== undefined ? r.time : r[cols[0]]);
-        const traces = [];
+        const outputs = cols.filter(c => c !== 'time');
 
-        cols.forEach((c) => {
-          if (c === 'time') return;
-          traces.push({
-            x: time,
-            y: rows.map(r => r[c]),
-            mode: 'lines',
-            name: c,
-            line: { width: 2 }
+        if (outputs.length > 0) {
+          const chartsContainer = $('chartsContainer');
+          
+          // Color palette for different graphs
+          const colors = [
+            '#667eea', // Purple
+            '#f56565', // Red
+            '#48bb78', // Green
+            '#ed8936', // Orange
+            '#4299e1', // Blue
+            '#9f7aea', // Violet
+            '#ed64a6', // Pink
+            '#38b2ac', // Teal
+            '#ecc94b', // Yellow
+            '#f687b3'  // Rose
+          ];
+          
+          // Create a separate graph for each output
+          outputs.forEach((outputName, idx) => {
+            // Create container div for this chart
+            const chartWrapper = document.createElement('div');
+            chartWrapper.className = 'chart-container';
+            
+            const chartDiv = document.createElement('div');
+            chartDiv.className = 'chart';
+            chartDiv.id = `chart_${idx}`;
+            
+            chartWrapper.appendChild(chartDiv);
+            chartsContainer.appendChild(chartWrapper);
+            
+            // Create trace for this output with unique color
+            const trace = {
+              x: time,
+              y: rows.map(r => r[outputName]),
+              mode: 'lines',
+              name: outputName,
+              line: { width: 2, color: colors[idx % colors.length] }
+            };
+            
+            // Create layout for this chart
+            const layout = {
+              title: { 
+                text: outputName, 
+                font: { size: 16, weight: 600 } 
+              },
+              xaxis: { 
+                title: 'Time [s]', 
+                gridcolor: '#e2e8f0' 
+              },
+              yaxis: { 
+                title: outputName, 
+                gridcolor: '#e2e8f0' 
+              },
+              paper_bgcolor: '#ffffff',
+              plot_bgcolor: '#f7fafc',
+              margin: { t: 50, b: 60, l: 60, r: 40 }
+            };
+            
+            // Plot this chart
+            Plotly.newPlot(`chart_${idx}`, [trace], layout, {responsive: true});
           });
-        });
-
-        if (traces.length > 0) {
-          Plotly.newPlot('chart', traces, {
-            title: { text: 'Simulation Results', font: { size: 16, weight: 600 } },
-            xaxis: { title: 'Time [s]', gridcolor: '#e2e8f0' },
-            yaxis: { title: 'Value', gridcolor: '#e2e8f0' },
-            legend: { orientation: 'h', y: -0.15 },
-            paper_bgcolor: '#ffffff',
-            plot_bgcolor: '#f7fafc',
-            margin: { t: 50, b: 60, l: 60, r: 40 }
-          }, {responsive: true});
         } else {
-          $('logs').textContent += '\n\n⚠ No plottable outputs returned.';
+          $('logs').textContent += '\n\n No plottable outputs returned.';
         }
 
         // Download links
         const dl = [];
         if (js.csv) {
           dl.push(`<a href="/api/download?path=${encodeURIComponent(js.csv)}">Download CSV</a>`);
-        }
-        if (js.png) {
-          dl.push(`<a href="/api/download?path=${encodeURIComponent(js.png)}">Download Plot PNG</a>`);
         }
         if (dl.length > 0) {
           $('downloads').innerHTML = '<strong>Downloads:</strong> ' + dl.join(' | ');

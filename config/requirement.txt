@@ -1,5 +1,7 @@
-python=3.12
+
+plotly 
 flask 
-numpy
-pandas
-matplotlib
+numpy 
+pandas 
+fmpy 
+pyyaml
