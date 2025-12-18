@@ -1,5 +1,5 @@
 {
-  "fmu": "C:\\Users\\PKN6HC\\Desktop\\Test_FMU\\Samples\\TE142x---FMU-Samples-main\\PneumaticCylinderModel2.fmu",
+  "fmu": "C:\\Users\\PKN6HC\\Desktop\\Test_FMU\\Samples\\TE142x---FMU-Samples-main\\PneumaticCylinderController2.fmu",
   "start_time": 0.0,
   "stop_time": 600.0,
   "step_size": 0.01,
@@ -10,24 +10,39 @@
   "start_values": {},
   "inputs": [
     [
-      "q",
+      "TcIn.SimIoGroup.x",
       [
         [
           0.0,
-          0.0
+          "0.0"
+        ]
+      ]
+    ],
+    [
+      "TcIn.SimIoGroup.dx",
+      [
+        [
+          0.0,
+          "0.0"
+        ]
+      ]
+    ],
+    [
+      "TcIn.SimIoGroup.p",
+      [
+        [
+          0.0,
+          "0.0"
         ]
       ]
     ]
   ],
   "outputs": [
-    "x",
-    "v",
-    "p"
+    "TcOut.SimIoGroup.q"
   ],
   "validate": true,
   "timeout": 60,
   "debug_logging": false,
-  "visible": false,
   "set_stop_time": true,
   "output_csv": "result.csv",
   "plot_png": "result.png"

@@ -2,4 +2,4 @@
 .env
 uploads
 .\FMUenv
-.\app\__pycache__
+.\__pycache__

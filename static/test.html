@@ -1,0 +1,669 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>FMU Web Runner</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      --border: #dcdcdc;
+      --muted: #666;
+      --primary: #0a84ff;
+      --bg: #f7f7f8;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      margin: 0; background: #fff; color: #222;
+    }
+    header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      background: #fff;
+      position: sticky; top: 0; z-index: 10;
+    }
+    header h1 { margin: 0; font-size: 20px; }
+    main { padding: 20px; max-width: 1100px; margin: 0 auto; }
+    .section-title { font-weight: 600; margin: 16px 0 8px; }
+    .card { border: 1px solid var(--border); border-radius: 10px; padding: 12px; margin-bottom: 16px; background: #fff; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .form-group { margin-bottom: 12px; }
+    label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+    input[type="text"], input[type="number"], select {
+      padding: 8px; border: 1px solid var(--border); border-radius: 8px; width: 100%;
+      background: #fff;
+    }
+    input[type="file"] { padding: 6px; }
+    .btn {
+      padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px;
+      background: #fff; cursor: pointer;
+    }
+    .btn.primary { background: var(--primary); color: #fff; border-color: var(--primary); }
+    .btn.secondary { background: var(--bg); }
+    .btn[disabled] { opacity: .5; cursor: not-allowed; }
+    .hint { color: var(--muted); font-size: 12px; }
+    .kv-row, .input-item, .chip-list { border: 1px solid var(--border); border-radius: 8px; padding: 8px; margin-bottom: 8px; }
+    .kv-row .row > * { flex: 1; }
+    .chip { display: inline-flex; align-items: center; background: #eef6ff; border: 1px solid #cfe3ff; border-radius: 16px; padding: 4px 10px; margin: 4px 6px 0 0; font-size: 12px; }
+    .chip button { margin-left: 8px; background: transparent; border: none; cursor: pointer; color: #333; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border: 1px solid var(--border); padding: 6px; text-align: left; }
+    details { margin-top: 8px; }
+    pre { background: #f6f8fa; border: 1px solid var(--border); border-radius: 8px; padding: 10px; overflow: auto; }
+    .status { color: var(--muted); font-size: 12px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>FMU Runner</h1>
+</header>
+
+<main>
+
+  <!-- Upload FMU -->
+  <div class="card">
+    <div class="section-title">Upload FMU</div>
+    <div class="row">
+      <input type="file" id="fileInput" accept=".fmu" />
+      <button class="btn" id="btnUpload">Upload</button>
+      <span id="uploadStatus" class="status"></span>
+    </div>
+    <div class="grid-2" style="margin-top: 10px;">
+      <div>
+        <div class="section-title">FMU Info</div>
+        <pre id="fmuInfo">Upload an FMU to see info</pre>
+      </div>
+      <div>
+        <div class="section-title">FMU Variables (from metadata)</div>
+        <pre id="varsDump">Upload an FMU to see variables</pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- Configuration -->
+  <div class="card">
+    <div class="section-title">Configuration</div>
+
+    <div class="grid-2">
+      <div class="form-group">
+        <label for="start_time">Start Time [s]</label>
+        <input type="number" step="any" id="start_time" value="0">
+      </div>
+      <div class="form-group">
+        <label for="stop_time">Stop Time [s]</label>
+        <input type="number" step="any" id="stop_time" value="5">
+      </div>
+      <div class="form-group">
+        <label for="output_interval">Output Interval [s]</label>
+        <input type="number" step="any" id="output_interval" value="0.01">
+      </div>
+      <div class="form-group">
+        <label for="timeout">Timeout (seconds)</label>
+        <input type="number" step="1" id="timeout" value="60">
+      </div>
+      <div class="form-group">
+        <label for="solver">Solver (ME only)</label>
+        <select id="solver">
+          <option value="">(auto/none)</option>
+          <option value="CVode">CVode</option>
+          <option value="Euler">Euler</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="relative_tolerance">Relative Tolerance</label>
+        <input type="number" step="any" id="relative_tolerance" value="1e-5">
+      </div>
+      <div class="form-group">
+        <label for="fmi_type">FMI Type</label>
+        <select id="fmi_type">
+          <option value="">auto</option>
+          <option value="CoSimulation">CoSimulation</option>
+          <option value="ModelExchange">ModelExchange</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Options</label>
+        <div class="row">
+          <label><input type="checkbox" id="record_events" checked> Record Events</label>
+          <label><input type="checkbox" id="debug_logging"> Debug Logging</label>
+        </div>
+      </div>
+    </div>
+
+    <!-- Start Values -->
+    <div class="section-title">Start Values</div>
+    <div id="startValues" class="form-group"></div>
+    <button type="button" class="btn" id="btnAddStartValue">+ Add parameter</button>
+    <div class="hint">Tip: choose a type to avoid accidental strings.</div>
+
+    <!-- Inputs -->
+    <div class="section-title" style="margin-top: 16px;">Inputs</div>
+    <div id="inputsList" class="form-group"></div>
+    <div class="row">
+      <button type="button" class="btn" id="btnAddInput">+ Add input signal</button>
+
+      <!-- Presets -->
+      <span class="hint">Quick preset:</span>
+      <select id="presetType">
+        <option value="">—</option>
+        <option value="step">Step</option>
+        <option value="sine">Sine</option>
+        <option value="ramp">Ramp</option>
+        <option value="constant">Constant</option>
+      </select>
+      <input type="text" id="presetVar" placeholder="variable name (e.g., q)" style="width: 160px;">
+      <input type="number" step="any" id="presetT0" placeholder="t0" value="0" style="width: 100px;">
+      <input type="number" step="any" id="presetT1" placeholder="t1" value="1" style="width: 100px;">
+      <input type="number" step="any" id="presetValA" placeholder="A" value="0" style="width: 100px;">
+      <input type="number" step="any" id="presetValB" placeholder="B" value="1" style="width: 100px;">
+      <button class="btn secondary" id="btnAddPreset">Add preset</button>
+    </div>
+    <div class="hint">Each input has a name and table of points [time, value].</div>
+
+    <!-- Outputs -->
+    <div class="section-title" style="margin-top: 16px;">Outputs</div>
+    <div id="outputsChips" class="chip-list"></div>
+    <div class="row">
+      <input type="text" id="outputNew" placeholder="Add output variable (e.g., x)" style="width: 240px;">
+      <button type="button" class="btn" id="btnAddOutput">Add</button>
+    </div>
+
+    <!-- Actions -->
+    <div class="row" style="margin-top: 16px;">
+      <button class="btn primary" id="btnRun" disabled>▶ Run Simulation</button>
+      <button class="btn secondary" id="btnViewJson">View JSON</button>
+      <span id="runStatus" class="status"></span>
+    </div>
+
+    <details style="margin-top: 8px;">
+      <summary>Generated JSON</summary>
+      <pre id="jsonPreview">{}</pre>
+    </details>
+  </div>
+
+  <!-- Results -->
+  <div class="card" id="resultsCard" style="display:none;">
+    <div class="section-title">Results</div>
+    <div class="row" style="margin-bottom:8px;">
+      <a id="load CSV</a>
+      <span id="rowsInfo" class="status"></span>
+    </div>
+    <table id="resultsTable">
+      <thead id="resultsHead"></thead>
+      <tbody id="resultsBody"></tbody>
+    </table>
+  </div>
+
+  <!-- Logs -->
+  <div class="card" id="logsCard" style="display:none;">
+    <div class="section-title">Simulation Logs</div>
+    <pre id="logs">No logs yet</pre>
+  </div>
+
+</main>
+
+<script>
+  // ---------------- State ----------------
+  let fmuPath = null;
+  const outputs = []; // chip list
+
+  // ---------------- Start Values UI ----------------
+  function renderStartValues(startValuesObj = null) {
+    const container = document.getElementById('startValues');
+    container.innerHTML = '';
+
+    const entries = startValuesObj
+      ? Object.entries(startValuesObj)
+      : [];
+
+    if (entries.length === 0) {
+      container.innerHTML = '<div class="hint">No parameters. Click "Add parameter".</div>';
+    }
+
+    entries.forEach(([key, value]) => {
+      const row = document.createElement('div');
+      row.className = 'kv-row';
+      row.innerHTML = `
+        <div class="row">
+          <input type="text" class="kv-key" placeholder="parameter name" value="${key}">
+          <select class="kv-type">
+            <option value="number"${typeof value === 'number' ? ' selected' : ''}>number</option>
+            <option value="string"${typeof value === 'string' ? ' selected' : ''}>string</option>
+            <option value="boolean"${typeof value === 'boolean' ? ' selected' : ''}>boolean</option>
+          </select>
+          ${typeof value === 'number' ? `<input type="number" step="any" class="kv-value" value="${value}">` :
+            typeof value === 'boolean' ? `<select class="kv-value"><option value="true"${value?' selected':''}>true</option><option value="false"${!value?' selected':''}>false</option></select>` :
+            `<input type="text" class="kv-value" value="${value}">`
+          }
+          <button type="button" class="btn secondary kv-del">Remove</button>
+        </div>
+      `;
+      container.appendChild(row);
+
+      // type change -> swap editor
+      row.querySelector('.kv-type').addEventListener('change', (e) => {
+        const type = e.target.value;
+        const valEl = row.querySelector('.kv-value');
+        const curVal = valEl.value;
+        let newEditor = '';
+        if (type === 'number') newEditor = `<input type="number" step="any" class="kv-value" value="${Number(curVal) || 0}">`;
+        else if (type === 'boolean') newEditor = `<select class="kv-value"><option value="true">true</option><option value="false">false</option></select>`;
+        else newEditor = `<input type="text" class="kv-value" value="${String(curVal)}">`;
+        valEl.outerHTML = newEditor;
+      });
+      row.querySelector('.kv-del').addEventListener('click', () => row.remove());
+    });
+  }
+
+  document.getElementById('btnAddStartValue').addEventListener('click', () => {
+    const container = document.getElementById('startValues');
+    const row = document.createElement('div');
+    row.className = 'kv-row';
+    row.innerHTML = `
+      <div class="row">
+        <input type="text" class="kv-key" placeholder="parameter name">
+        <select class="kv-type">
+          <option value="number">number</option>
+          <option value="string">string</option>
+          <option value="boolean">boolean</option>
+        </select>
+        <input type="text" class="kv-value" placeholder="value">
+        <button type="button" class="btn secondary kv-del">Remove</button>
+      </div>
+    `;
+    row.querySelector('.kv-del').addEventListener('click', () => row.remove());
+    container.appendChild(row);
+  });
+
+  function collectStartValues() {
+    const result = {};
+    document.querySelectorAll('#startValues .kv-row').forEach(row => {
+      const key = row.querySelector('.kv-key').value.trim();
+      const type = row.querySelector('.kv-type').value;
+      const valEl = row.querySelector('.kv-value');
+      let val = valEl.value;
+      if (!key) return;
+      if (type === 'number') {
+        val = Number(val);
+        if (!Number.isFinite(val)) val = 0;
+      } else if (type === 'boolean') {
+        val = String(val).toLowerCase() === 'true';
+      } else {
+        val = String(val);
+      }
+      result[key] = val;
+    });
+    return result;
+  }
+
+  // ---------------- Inputs UI ----------------
+  function renderInputs(inputsArr = []) {
+    const container = document.getElementById('inputsList');
+    container.innerHTML = '';
+    if (!inputsArr.length) {
+      container.innerHTML = '<div class="hint">No input signals. Click "Add input signal".</div>';
+      return;
+    }
+
+    inputsArr.forEach(([varName, points]) => {
+      addInputItem(varName, points);
+    });
+  }
+
+  function addInputItem(varName = '', points = []) {
+    const container = document.getElementById('inputsList');
+    const item = document.createElement('div');
+    item.className = 'input-item';
+    item.innerHTML = `
+      <div class="row">
+        <input type="text" class="inp-var" placeholder="variable name" value="${varName}">
+        <button type="button" class="btn secondary inp-del" style="margin-left:auto;">Remove signal</button>
+      </div>
+      <div class="form-group">
+        <table>
+          <thead><tr><th>t</th><th>value</th><th>Actions</th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <div class="row" style="margin-top:6px;">
+          <button type="button" class="btn secondary add-point">+ Add point</button>
+          <button type="button" class="btn secondary clear-points">Clear</button>
+        </div>
+      </div>
+    `;
+    container.appendChild(item);
+
+    const tbody = item.querySelector('tbody');
+    const appendPointRow = (t, v) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><input type="number" step="any" class="pt-time" value="${Number(t)}"></td>
+        <td><input type="number" step="any" class="pt-val" value="${Number(v)}"></td>
+        <td><button type="button" class="btn secondary">Remove</button></td>
+      `;
+      tr.querySelector('button').addEventListener('click', () => tr.remove());
+      tbody.appendChild(tr);
+    };
+
+    (points || []).forEach(p => appendPointRow(p[0], p[1]));
+
+    item.querySelector('.add-point').addEventListener('click', () => appendPointRow(0, 0));
+    item.querySelector('.clear-points').addEventListener('click', () => { tbody.innerHTML = ''; });
+    item.querySelector('.inp-del').addEventListener('click', () => item.remove());
+  }
+
+  document.getElementById('btnAddInput').addEventListener('click', () => addInputItem('', []));
+
+  function collectInputs() {
+    const inputs = [];
+    document.querySelectorAll('#inputsList .input-item').forEach(item => {
+      const name = item.querySelector('.inp-var').value.trim();
+      const points = [];
+      item.querySelectorAll('tbody tr').forEach(tr => {
+        const t = Number(tr.querySelector('.pt-time').value);
+        const v = Number(tr.querySelector('.pt-val').value);
+        if (Number.isFinite(t) && Number.isFinite(v)) {
+          points.push([t, v]);
+        }
+      });
+      if (name) inputs.push([name, points]);
+    });
+
+    // sort each points array by t and ensure non-decreasing
+    inputs.forEach(entry => {
+      entry[1].sort((a, b) => a[0] - b[0]);
+    });
+    return inputs;
+  }
+
+  // ---------------- Outputs chips ----------------
+  function renderOutputs() {
+    const container = document.getElementById('outputsChips');
+    container.innerHTML = '';
+    if (!outputs.length) {
+      container.innerHTML = '<div class="hint">No outputs. Add some below.</div>';
+      return;
+    }
+    outputs.forEach((name, idx) => {
+      const chip = document.createElement('span');
+      chip.className = 'chip';
+      chip.textContent = name;
+      const btn = document.createElement('button');
+      btn.textContent = '×';
+      btn.addEventListener('click', () => { outputs.splice(idx, 1); renderOutputs(); });
+      chip.appendChild(btn);
+      container.appendChild(chip);
+    });
+  }
+
+  document.getElementById('btnAddOutput').addEventListener('click', () => {
+    const input = document.getElementById('outputNew');
+    const val = (input.value || '').trim();
+    if (val && !outputs.includes(val)) {
+      outputs.push(val);
+      input.value = '';
+      renderOutputs();
+    }
+  });
+
+  // ---------------- Presets for inputs ----------------
+  document.getElementById('btnAddPreset').addEventListener('click', () => {
+    const type = document.getElementById('presetType').value;
+    const varName = document.getElementById('presetVar').value.trim();
+    let t0 = Number(document.getElementById('presetT0').value);
+    let t1 = Number(document.getElementById('presetT1').value);
+    const a = Number(document.getElementById('presetValA').value);
+    const b = Number(document.getElementById('presetValB').value);
+    if (!type || !varName) {
+      alert('Choose a preset and provide a variable name.');
+      return;
+    }
+    if (t1 < t0) [t0, t1] = [t1, t0];
+
+    let points = [];
+    if (type === 'step') {
+      points = [[0, a], [t0, a], [t0, b], [t1, b]];
+    } else if (type === 'constant') {
+      points = [[t0, a], [t1, a]];
+    } else if (type === 'ramp') {
+      points = [[t0, a], [t1, b]];
+    } else if (type === 'sine') {
+      const N = 20;
+      for (let i = 0; i <= N; i++) {
+        const t = t0 + (i / N) * (t1 - t0);
+        const v = b + a * Math.sin(2 * Math.PI * (i / N));
+        points.push([Number(t.toFixed(6)), Number(v.toFixed(6))]);
+      }
+    }
+    addInputItem(varName, points);
+  });
+
+  // ---------------- Upload FMU ----------------
+  document.getElementById('btnUpload').addEventListener('click', async () => {
+    const fileEl = document.getElementById('fileInput');
+    const statusEl = document.getElementById('uploadStatus');
+    statusEl.textContent = '';
+    if (!fileEl.files || !fileEl.files.length) {
+      statusEl.textContent = 'Choose an .fmu file first.';
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', fileEl.files[0]);
+
+    try {
+      statusEl.textContent = 'Uploading…';
+      const res = await fetch('/api/upload-fmu', { method: 'POST', body: formData });
+      const json = await res.json();
+      if (!res.ok || !json.ok) {
+        statusEl.textContent = 'Upload failed.';
+        alert('Upload error:\n' + JSON.stringify(json, null, 2));
+        return;
+      }
+      statusEl.textContent = 'Uploaded ✓';
+      fmuPath = json.fmuPath;
+      document.getElementById('btnRun').disabled = false;
+
+      // If server provided a template with config and variables, use it
+      if (json.template) {
+        const tpl = json.template;
+
+        // Info block
+        const infoObj = tpl.info || tpl.fmu_info || {};
+        document.getElementById('fmuInfo').textContent = safeStringify(infoObj, 2);
+
+        const varsObj = tpl.variables || {};
+        document.getElementById('varsDump').textContent = safeStringify(varsObj, 2);
+
+        // Config: fill UI
+        const cfg = tpl.config || tpl; // fallback
+        setConfigToUI(cfg);
+      }
+    } catch (e) {
+      statusEl.textContent = 'Upload failed.';
+      alert('Network/server error: ' + e);
+    }
+  });
+
+  function setConfigToUI(cfg) {
+    // Scalars
+    setVal('start_time', cfg.start_time, 0);
+    setVal('stop_time', cfg.stop_time, 5);
+    setVal('output_interval', cfg.output_interval, 0.01);
+    setVal('timeout', cfg.timeout, 60);
+
+    setSelect('solver', cfg.solver);
+    setVal('relative_tolerance', cfg.relative_tolerance, 1e-5);
+    setSelect('fmi_type', cfg.fmi_type);
+
+    setChecked('record_events', cfg.record_events, true);
+    setChecked('debug_logging', cfg.debug_logging, false);
+
+    // Start values
+    renderStartValues(cfg.start_values || {});
+
+    // Inputs
+    renderInputs(cfg.inputs || []);
+
+    // Outputs
+    (cfg.outputs || []).forEach(o => { if (!outputs.includes(o)) outputs.push(o); });
+    renderOutputs();
+  }
+
+  function setVal(id, v, def) {
+    const el = document.getElementById(id);
+    const val = (v === undefined || v === null) ? def : v;
+    if (el) el.value = val;
+  }
+  function setSelect(id, v) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.value = v || '';
+  }
+  function setChecked(id, v, def) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.checked = (v === undefined || v === null) ? def : !!v;
+  }
+
+  function safeStringify(obj, spaces = 2) {
+    try { return JSON.stringify(obj, null, spaces); } catch { return String(obj); }
+  }
+
+  // ---------------- Build Payload & Run ----------------
+  function buildPayload() {
+    const payload = {
+      fmu: fmuPath, // explicit (backend also has SESSION)
+      start_time: Number(document.getElementById('start_time').value),
+      stop_time: Number(document.getElementById('stop_time').value),
+      output_interval: Number(document.getElementById('output_interval').value),
+      timeout: Number(document.getElementById('timeout').value),
+      solver: document.getElementById('solver').value || null,
+      relative_tolerance: Number(document.getElementById('relative_tolerance').value),
+      fmi_type: document.getElementById('fmi_type').value || null,
+      record_events: document.getElementById('record_events').checked,
+      debug_logging: document.getElementById('debug_logging').checked,
+
+      start_values: collectStartValues(),
+      inputs: collectInputs(),
+      outputs: outputs.slice() // strings
+    };
+    return payload;
+  }
+
+  document.getElementById('btnViewJson').addEventListener('click', () => {
+    const payload = buildPayload();
+    document.getElementById('jsonPreview').textContent = JSON.stringify(payload, null, 2);
+  });
+
+  document.getElementById('btnRun').addEventListener('click', async () => {
+    const statusEl = document.getElementById('runStatus');
+    const payload = buildPayload();
+
+    // Simple validations
+    const errs = [];
+    if (!fmuPath) errs.push('Upload an FMU first.');
+    if (!Number.isFinite(payload.start_time)) errs.push('Start time must be a number.');
+    if (!Number.isFinite(payload.stop_time)) errs.push('Stop time must be a number.');
+    if (payload.stop_time <= payload.start_time) errs.push('Stop time must be > start time.');
+    payload.inputs.forEach(([name, pts], i) => {
+      if (!name) errs.push(`inputs[${i}] name is empty.`);
+      let lastT = -Infinity;
+      pts.forEach(([t, v], j) => {
+        if (t < lastT) errs.push(`inputs[${i}].points times must be non-decreasing.`);
+        lastT = t;
+        if (!Number.isFinite(t) || !Number.isFinite(v)) errs.push(`inputs[${i}].points[${j}] must be numbers.`);
+      });
+    });
+
+    if (errs.length) {
+      alert('Please fix:\n' + errs.join('\n'));
+      return;
+    }
+
+    statusEl.textContent = 'Running…';
+    try {
+      const res = await fetch('/api/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const json = await res.json();
+      if (!res.ok || !json.ok) {
+        statusEl.textContent = 'Failed.';
+        showLogs(json.logs || []);
+        alert('Simulation error:\n' + safeStringify(json, 2));
+        return;
+      }
+      statusEl.textContent = 'Done ✓';
+      renderResults(json);
+      showLogs(json.logs || []);
+    } catch (e) {
+      statusEl.textContent = 'Failed.';
+      alert('Network/server error: ' + e);
+    }
+  });
+
+  // ---------------- Results & Logs ----------------
+  function renderResults(data) {
+    const card = document.getElementById('resultsCard');
+    const head = document.getElementById('resultsHead');
+    const body = document.getElementById('resultsBody');
+    const link = document.getElementById('csvLink');
+    const info = document.getElementById('rowsInfo');
+
+    card.style.display = 'block';
+    head.innerHTML = '';
+    body.innerHTML = '';
+
+    const cols = data.columns || [];
+    const rows = data.rows || [];
+    const trHead = document.createElement('tr');
+    cols.forEach(c => {
+      const th = document.createElement('th');
+      th.textContent = c;
+      trHead.appendChild(th);
+    });
+    head.appendChild(trHead);
+
+    const maxRows = Math.min(rows.length, 500);
+    for (let i = 0; i < maxRows; i++) {
+      const tr = document.createElement('tr');
+      cols.forEach(c => {
+        const td = document.createElement('td');
+        td.textContent = rows[i][c];
+        tr.appendChild(td);
+      });
+      body.appendChild(tr);
+    }
+
+    if (data.csv) {
+      link.href = `/api/download?path=${encodeURIComponent(data.csv)}`;
+      link.style.display = 'inline-block';
+    } else {
+      link.style.display = 'none';
+    }
+    info.textContent = `Rows: ${data.total_rows ?? rows.length} (showing ${maxRows})`;
+  }
+
+  function showLogs(lines) {
+    const card = document.getElementById('logsCard');
+    const pre = document.getElementById('logs');
+    if (!lines || !lines.length) {
+      card.style.display = 'none';
+      pre.textContent = 'No logs yet';
+      return;
+    }
+    card.style.display = 'block';
+    pre.textContent = lines.join('\n');
+  }
+
+  // ---------------- Initial UI ----------------
+  renderStartValues({});
+  renderInputs([]);
+  renderOutputs();
+</script>
+
+</body>

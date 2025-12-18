@@ -153,7 +153,7 @@ def generate_template(fmu_path: str) -> Dict[str, Any]:
         # UX & artifacts
         "validate": True,
         "timeout": 60,
-        "debug_logging": False,
+        "debug_logging": True,
         "visible": False,
         "set_stop_time": True,
 
