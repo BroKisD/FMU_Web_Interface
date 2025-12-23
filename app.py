@@ -158,6 +158,7 @@ def generate_template(fmu_path: str) -> Dict[str, Any]:
         "set_stop_time": True,
 
         "output_csv": "result.csv",
+        "input_file": None,
     }
     return {
         "config": cfg, 
@@ -277,6 +278,7 @@ def run_simulation():
     # Prepare inputs
     raw_inputs = payload.get("inputs", None)
     signals = build_structured_input(raw_inputs)
+    input_file = payload.get("input_file")
 
     kwargs = dict(
         filename=fmu_path,
@@ -295,8 +297,12 @@ def run_simulation():
         debug_logging=payload.get("debug_logging"),
         fmi_call_logger=fmi_logger
     )
-    # Only add input if we have signals
-    if signals is not None:
+    # Only add input if we have signals and no input file override
+    if input_file:
+        if not os.path.exists(input_file):
+            return jsonify({"ok": False, "error": "Input file not found. Upload again."}), 400
+        kwargs["input_file"] = input_file
+    elif signals is not None:
         kwargs["input"] = signals
 
     # Drop None values
@@ -334,6 +340,35 @@ def run_simulation():
         if any("TwinCAT" in line for line in logs) or "TwinCAT" in msg:
             logs.append("Hint: Install TwinCAT 3 XAE + XAR (matching build) so registry keys like 'DataDir' exist.")
         return jsonify({"ok": False, "error": msg, "logs": logs, "trace": traceback.format_exc()}), 500
+
+
+@app.post('/api/upload-input')
+def upload_input_file():
+    try:
+        if 'file' not in request.files:
+            return jsonify({"ok": False, "error": "No file"}), 400
+        file = request.files['file']
+        if not file or file.filename == '':
+            return jsonify({"ok": False, "error": "No file selected"}), 400
+        if not file.filename.lower().endswith('.csv'):
+            return jsonify({"ok": False, "error": "Only .csv files allowed"}), 400
+
+        upload_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')
+        os.makedirs(upload_dir, exist_ok=True)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        safe_filename = f"{timestamp}_{file.filename}"
+        input_path = os.path.join(upload_dir, safe_filename)
+        file.save(input_path)
+
+        SESSION['input_file'] = input_path
+        return jsonify({"ok": True, "path": input_path})
+    except Exception as e:
+        return jsonify({
+            "ok": False,
+            "error": str(e),
+            "type": type(e).__name__,
+            "trace": traceback.format_exc()
+        }), 500
 
 
 @app.get('/api/download')

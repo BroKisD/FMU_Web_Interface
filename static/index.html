@@ -283,6 +283,119 @@
       font-family: ui-monospace, Menlo, Consolas, monospace;
       font-size: 12px;
     }
+
+    .helper {
+      font-size: 12px;
+      color: #718096;
+    }
+
+    .inline-input {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .inline-input input[type="text"] {
+      flex: 1;
+      min-width: 200px;
+    }
+
+    .btn-small {
+      padding: 6px 12px;
+      font-size: 12px;
+      border-radius: 6px;
+    }
+
+    .input-card {
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 16px;
+      background: #f7fafc;
+      margin-bottom: 12px;
+    }
+
+    .input-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .input-name {
+      font-weight: 600;
+      color: #1a202c;
+      font-size: 14px;
+    }
+
+    .input-meta {
+      font-size: 12px;
+      color: #718096;
+    }
+
+    .input-table {
+      display: grid;
+      gap: 8px;
+    }
+
+    .input-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr auto;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .input-row.header {
+      font-size: 12px;
+      color: #4a5568;
+      font-weight: 600;
+    }
+
+    .input-row input {
+      padding: 8px 10px;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      font-size: 13px;
+      background: #fff;
+    }
+
+    .vars-section {
+      display: grid;
+      gap: 16px;
+    }
+
+    .vars-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .vars-table th,
+    .vars-table td {
+      border: 1px solid #e2e8f0;
+      padding: 8px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    .vars-table th {
+      background: #edf2f7;
+      font-weight: 600;
+      color: #2d3748;
+    }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: max-content 1fr;
+      gap: 8px 16px;
+      font-size: 13px;
+    }
+
+    .info-label {
+      font-weight: 600;
+      color: #2d3748;
+    }
   </style>
   <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
 </head>
@@ -316,7 +429,12 @@
           <label>Stop Time</label>
           <input type="number" id="stop_time" step="any" value="600.0">
         </div>
-        
+
+        <div class="form-group">
+          <label>Output Interval</label>
+          <input type="number" id="output_interval" step="any" value="0.01">
+        </div>
+
         <div class="form-group">
           <label>Step Size</label>
           <input type="number" id="step_size" step="any" value="0.01">
@@ -341,6 +459,16 @@
         </div>
       </div>
 
+      <div class="form-group">
+        <label>Input File (CSV)</label>
+        <div class="inline-input">
+          <input type="text" id="input_file" placeholder="Upload a CSV or leave empty" readonly>
+          <input type="file" id="inputFileUpload" accept=".csv">
+          <button class="btn-secondary btn-small" id="btnUploadInput">Upload</button>
+        </div>
+        <div id="inputUploadStatus" class="helper"></div>
+      </div>
+
       <div class="section-title">Options</div>
       <div class="form-grid">
         <div class="checkbox-group">
@@ -354,14 +482,14 @@
         </div>  
       </div>
 
-    <div class="section-title">Start Values (JSON)</div>
-      <div class="form-group">
-        <textarea id="start_values" placeholder='{"param1": 1.0, "param2": 2.0}'>{}</textarea>
+      <div class="section-title">Parameters</div>
+      <div id="parametersContainer" class="form-grid">
+        <div class="helper">Upload an FMU to see parameters.</div>
       </div>
 
-      <div class="section-title">Inputs (JSON)</div>
-      <div class="form-group">
-        <textarea id="inputs" placeholder='[["q", [[0.0, 0.0]]]]'>[]</textarea>
+      <div class="section-title">Inputs</div>
+      <div id="inputsContainer">
+        <div class="helper">Upload an FMU to see input signals.</div>
       </div>
 
       <div class="section-title">Outputs (comma-separated)</div>
@@ -383,12 +511,12 @@
 
       <details>
         <summary>FMU Variables (from metadata)</summary>
-        <pre id="varsDump">Upload an FMU to see variables</pre>
+        <div id="varsDump" class="vars-section">Upload an FMU to see variables</div>
       </details>
       
       <details>
         <summary>FMU Info</summary>
-        <pre id="fmuInfo">Upload an FMU to see info</pre>
+        <div id="fmuInfo">Upload an FMU to see info</div>
       </details>
     </div>
 
@@ -410,28 +538,16 @@
     function getConfig() {
       const outputs = $('outputs').value.split(',').map(s => s.trim()).filter(Boolean);
       
-      let startValues = {};
-      try {
-        const sv = $('start_values').value.trim();
-        if (sv) startValues = JSON.parse(sv);
-      } catch (e) {
-        alert('Start Values is not valid JSON: ' + e.message);
-        throw e;
-      }
-      
-      let inputs = [];
-      try {
-        const inp = $('inputs').value.trim();
-        if (inp) inputs = JSON.parse(inp);
-      } catch (e) {
-        alert('Inputs is not valid JSON: ' + e.message);
-        throw e;
-      }
+      const startValues = collectStartValues();
+      const inputs = collectInputs();
+      const outputInterval = parseFloat($('output_interval').value);
+      const inputFile = $('input_file').value.trim();
       
       return {
         fmu: null, // will be set by backend
         start_time: parseFloat($('start_time').value),
         stop_time: parseFloat($('stop_time').value),
+        output_interval: Number.isNaN(outputInterval) ? null : outputInterval,
         step_size: parseFloat($('step_size').value),
         solver: $('solver').value,
         relative_tolerance: parseFloat($('relative_tolerance').value),
@@ -443,6 +559,7 @@
         timeout: parseInt($('timeout').value),
         debug_logging: $('debug_logging').checked,
         output_csv: $('output_csv').value,
+        input_file: inputFile || null,
       };
     }
 
@@ -450,16 +567,209 @@
     function setConfig(cfg) {
       $('start_time').value = cfg.start_time || 0;
       $('stop_time').value = cfg.stop_time || 600;
+      $('output_interval').value = cfg.output_interval ?? 0.01;
       $('step_size').value = cfg.step_size || 0.01;
       $('solver').value = cfg.solver || 'CVode';
       $('relative_tolerance').value = cfg.relative_tolerance || 0.00001;
       $('timeout').value = cfg.timeout || 60;
       $('record_events').checked = cfg.record_events !== false;
       $('debug_logging').checked = cfg.debug_logging || false;
-      $('start_values').value = JSON.stringify(cfg.start_values || {}, null, 2);
-      $('inputs').value = JSON.stringify(cfg.inputs || [], null, 2);
       $('outputs').value = (cfg.outputs || []).join(', ');
       $('output_csv').value = cfg.output_csv || 'result.csv';
+      $('input_file').value = cfg.input_file || '';
+    }
+
+    function clearNode(node) {
+      while (node.firstChild) node.removeChild(node.firstChild);
+    }
+
+    function createText(tag, text, className) {
+      const el = document.createElement(tag);
+      if (className) el.className = className;
+      el.textContent = text;
+      return el;
+    }
+
+    function renderParameters(params, startValues) {
+      const container = $('parametersContainer');
+      clearNode(container);
+      if (!params || params.length === 0) {
+        container.appendChild(createText('div', 'No parameters found.', 'helper'));
+        return;
+      }
+
+      params.forEach(param => {
+        const group = document.createElement('div');
+        group.className = 'form-group';
+        group.dataset.param = 'true';
+        group.dataset.name = param.name;
+        group.dataset.type = param.type;
+
+        const label = createText('label', param.name);
+        group.appendChild(label);
+
+        let input;
+        if (param.type === 'Boolean') {
+          input = document.createElement('select');
+          const optTrue = createText('option', 'true');
+          optTrue.value = 'true';
+          const optFalse = createText('option', 'false');
+          optFalse.value = 'false';
+          input.appendChild(optTrue);
+          input.appendChild(optFalse);
+        } else {
+          input = document.createElement('input');
+          input.type = param.type === 'String' ? 'text' : 'number';
+          if (param.type === 'Integer') input.step = '1';
+          if (param.type === 'Real') input.step = 'any';
+        }
+        input.value = startValues && startValues[param.name] != null ? startValues[param.name] : (param.start ?? '');
+        input.className = 'param-input';
+        group.appendChild(input);
+
+        if (param.description) {
+          group.appendChild(createText('div', param.description, 'helper'));
+        }
+
+        container.appendChild(group);
+      });
+    }
+
+    function addInputRow(table, timeValue, valueValue) {
+      const row = document.createElement('div');
+      row.className = 'input-row';
+      row.dataset.row = 'true';
+
+      const timeInput = document.createElement('input');
+      timeInput.type = 'number';
+      timeInput.step = 'any';
+      timeInput.placeholder = 'time';
+      if (timeValue !== undefined && timeValue !== null) timeInput.value = timeValue;
+
+      const valueInput = document.createElement('input');
+      valueInput.type = 'number';
+      valueInput.step = 'any';
+      valueInput.placeholder = 'value';
+      if (valueValue !== undefined && valueValue !== null) valueInput.value = valueValue;
+
+      const removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.className = 'btn-secondary btn-small';
+      removeBtn.textContent = 'Remove';
+      removeBtn.onclick = () => row.remove();
+
+      row.appendChild(timeInput);
+      row.appendChild(valueInput);
+      row.appendChild(removeBtn);
+      table.appendChild(row);
+    }
+
+    function renderInputs(inputs, configInputs) {
+      const container = $('inputsContainer');
+      clearNode(container);
+      if (!inputs || inputs.length === 0) {
+        container.appendChild(createText('div', 'No input variables found.', 'helper'));
+        return;
+      }
+
+      const scheduleMap = new Map();
+      (configInputs || []).forEach(entry => {
+        if (Array.isArray(entry) && entry.length === 2) {
+          scheduleMap.set(entry[0], entry[1] || []);
+        }
+      });
+
+      inputs.forEach(inputVar => {
+        const card = document.createElement('div');
+        card.className = 'input-card';
+        card.dataset.name = inputVar.name;
+        card.dataset.type = inputVar.type;
+
+        const header = document.createElement('div');
+        header.className = 'input-card-header';
+
+        const titleWrap = document.createElement('div');
+        titleWrap.appendChild(createText('div', inputVar.name, 'input-name'));
+        const meta = [inputVar.type, inputVar.description].filter(Boolean).join(' • ');
+        if (meta) titleWrap.appendChild(createText('div', meta, 'input-meta'));
+
+        const addBtn = document.createElement('button');
+        addBtn.type = 'button';
+        addBtn.className = 'btn-secondary btn-small';
+        addBtn.textContent = 'Add row';
+
+        header.appendChild(titleWrap);
+        header.appendChild(addBtn);
+        card.appendChild(header);
+
+        const table = document.createElement('div');
+        table.className = 'input-table';
+        const headerRow = document.createElement('div');
+        headerRow.className = 'input-row header';
+        headerRow.innerHTML = '<div>Time</div><div>Value</div><div></div>';
+        table.appendChild(headerRow);
+
+        const schedule = scheduleMap.get(inputVar.name) || [];
+        if (schedule.length > 0) {
+          schedule.forEach(pair => {
+            addInputRow(table, pair[0], pair[1]);
+          });
+        } else if (inputVar.start != null) {
+          addInputRow(table, 0.0, inputVar.start);
+        } else {
+          addInputRow(table);
+        }
+
+        addBtn.onclick = () => addInputRow(table);
+
+        card.appendChild(table);
+        container.appendChild(card);
+      });
+    }
+
+    function collectStartValues() {
+      const values = {};
+      document.querySelectorAll('#parametersContainer [data-param="true"]').forEach(group => {
+        const name = group.dataset.name;
+        const type = group.dataset.type;
+        const input = group.querySelector('.param-input');
+        if (!input) return;
+        const raw = input.value;
+        if (raw === '') return;
+        if (type === 'Boolean') {
+          values[name] = raw === 'true';
+        } else if (type === 'Integer') {
+          const v = parseInt(raw, 10);
+          if (!Number.isNaN(v)) values[name] = v;
+        } else if (type === 'Real') {
+          const v = parseFloat(raw);
+          if (!Number.isNaN(v)) values[name] = v;
+        } else {
+          values[name] = raw;
+        }
+      });
+      return values;
+    }
+
+    function collectInputs() {
+      const inputs = [];
+      document.querySelectorAll('#inputsContainer .input-card').forEach(card => {
+        const name = card.dataset.name;
+        const rows = [];
+        card.querySelectorAll('.input-row[data-row="true"]').forEach(row => {
+          const fields = row.querySelectorAll('input');
+          if (fields.length < 2) return;
+          const t = parseFloat(fields[0].value);
+          const v = parseFloat(fields[1].value);
+          if (!Number.isNaN(t) && !Number.isNaN(v)) {
+            rows.push([t, v]);
+          }
+        });
+        if (rows.length > 0) {
+          inputs.push([name, rows]);
+        }
+      });
+      return inputs;
     }
 
     $('btnUpload').onclick = async () => {
@@ -488,11 +798,39 @@
         if (js.template.config) {
           setConfig(js.template.config);
         }
-        
-        $('varsDump').textContent = JSON.stringify(js.template.variables, null, 2);
-        $('fmuInfo').textContent = js.template.info;
+
+        renderParameters(js.template.variables.parameters, js.template.config?.start_values || {});
+        renderInputs(js.template.variables.inputs, js.template.config?.inputs || []);
+
+        renderVariables(js.template.variables);
+        renderInfo(js.template.info);
       } catch (e) {
         $('uploadStatus').innerHTML = '<div class="status-message status-error">Error: ' + e.message + '</div>';
+      }
+    };
+
+    $('btnUploadInput').onclick = async () => {
+      const file = $('inputFileUpload').files[0];
+      if (!file) {
+        $('inputUploadStatus').textContent = 'Select a CSV file to upload.';
+        return;
+      }
+
+      const fd = new FormData();
+      fd.append('file', file);
+      $('inputUploadStatus').textContent = 'Uploading input file...';
+
+      try {
+        const res = await fetch('/api/upload-input', { method: 'POST', body: fd });
+        const js = await res.json();
+        if (!js.ok) {
+          $('inputUploadStatus').textContent = 'Upload failed: ' + (js.error || 'unknown');
+          return;
+        }
+        $('input_file').value = js.path;
+        $('inputUploadStatus').textContent = 'Input file uploaded.';
+      } catch (e) {
+        $('inputUploadStatus').textContent = 'Upload error: ' + e.message;
       }
     };
 
@@ -618,6 +956,79 @@
         alert('Network error occurred. Check logs.');
       }
     };
+
+    function renderVariables(groups) {
+      const container = $('varsDump');
+      clearNode(container);
+      if (!groups) {
+        container.textContent = 'No variables available.';
+        return;
+      }
+
+      const sections = [
+        ['Parameters', groups.parameters],
+        ['Inputs', groups.inputs],
+        ['Outputs', groups.outputs],
+        ['Independent', groups.independent],
+      ];
+
+      sections.forEach(([title, list]) => {
+        const section = document.createElement('div');
+        section.appendChild(createText('div', title, 'section-title'));
+        if (!list || list.length === 0) {
+          section.appendChild(createText('div', 'None', 'helper'));
+        } else {
+          const table = document.createElement('table');
+          table.className = 'vars-table';
+          const thead = document.createElement('thead');
+          const headRow = document.createElement('tr');
+          ['Name', 'Type', 'Start', 'Variability', 'Description'].forEach(label => {
+            const th = document.createElement('th');
+            th.textContent = label;
+            headRow.appendChild(th);
+          });
+          thead.appendChild(headRow);
+          table.appendChild(thead);
+          const tbody = document.createElement('tbody');
+          list.forEach(v => {
+            const row = document.createElement('tr');
+            const cells = [
+              v.name,
+              v.type,
+              v.start != null ? v.start : '',
+              v.variability || '',
+              v.description || ''
+            ];
+            cells.forEach(value => {
+              const td = document.createElement('td');
+              td.textContent = value;
+              row.appendChild(td);
+            });
+            tbody.appendChild(row);
+          });
+          table.appendChild(tbody);
+          section.appendChild(table);
+        }
+        container.appendChild(section);
+      });
+    }
+
+    function renderInfo(info) {
+      const container = $('fmuInfo');
+      clearNode(container);
+      if (!info) {
+        container.textContent = 'No info available.';
+        return;
+      }
+
+      const grid = document.createElement('div');
+      grid.className = 'info-grid';
+      Object.entries(info).forEach(([key, value]) => {
+        grid.appendChild(createText('div', key, 'info-label'));
+        grid.appendChild(createText('div', String(value)));
+      });
+      container.appendChild(grid);
+    }
   </script>
 </body>
 </html>
