@@ -12,21 +12,21 @@
     body { 
       font-family: "Space Grotesk", "IBM Plex Sans", "Segoe UI", sans-serif; 
       margin: 0; 
-      background: radial-gradient(1200px 600px at 10% -10%, #f2f8ff 0%, #f8fbf7 50%, #f7f7ff 100%);
+      background: #f5f6f8;
       color: #1f2933; 
       line-height: 1.5;
     }
     header { 
-      background: linear-gradient(120deg, #0b1220 0%, #142038 65%, #17273f 100%);
+      background: #111827;
       color: #f8fafc; 
       padding: 28px 24px; 
-      box-shadow: 0 6px 24px rgba(8, 15, 30, 0.25);
+      box-shadow: none;
     }
     h1 { margin: 0; font-size: 26px; font-weight: 600; letter-spacing: 0.4px; }
     .header-subtitle {
       margin-top: 6px;
       font-size: 13px;
-      color: rgba(248, 250, 252, 0.78);
+      color: rgba(248, 250, 252, 0.7);
     }
     .header-badges {
       display: flex;
@@ -37,20 +37,20 @@
     .badge {
       padding: 4px 10px;
       border-radius: 999px;
-      border: 1px solid rgba(248, 250, 252, 0.3);
+      border: 1px solid rgba(248, 250, 252, 0.2);
       font-size: 11px;
       letter-spacing: 0.2px;
       text-transform: uppercase;
     }
     .container { max-width: 1200px; margin: 0 auto; padding: 0 18px; }
     .card { 
-      background: rgba(255, 255, 255, 0.9); 
+      background: #ffffff; 
       margin: 18px 0; 
       padding: 22px; 
       border-radius: 16px; 
-      box-shadow: 0 10px 26px rgba(18, 28, 45, 0.08);
-      border: 1px solid rgba(148, 163, 184, 0.25);
-      backdrop-filter: blur(6px);
+      box-shadow: none;
+      border: 1px solid #e5e7eb;
+      backdrop-filter: none;
       animation: floatIn 0.7s ease both;
     }
     .card:nth-of-type(1) { animation-delay: 0.05s; }
@@ -70,9 +70,9 @@
       display: inline-block;
       width: 14px;
       height: 14px;
-      background: linear-gradient(135deg, #f97316 0%, #facc15 100%);
+      background: #111827;
       border-radius: 4px;
-      box-shadow: 0 0 0 6px rgba(249, 115, 22, 0.12);
+      box-shadow: none;
     }
     
     .upload-area {
@@ -84,35 +84,35 @@
     
     input[type="file"] {
       padding: 10px 14px;
-      border: 1.5px dashed #cbd5e1;
-      border-radius: 10px;
-      background: #f8fafc;
+      border: 1px dashed #cbd5e1;
+      border-radius: 8px;
+      background: #f9fafb;
       cursor: pointer;
       flex: 1;
       min-width: 220px;
       font-size: 13px;
     }
     input[type="file"]:hover {
-      border-color: #fb923c;
-      background: #fff7ed;
+      border-color: #94a3b8;
+      background: #f9fafb;
     }
     
     button { 
-      background: linear-gradient(135deg, #f97316 0%, #f59e0b 100%);
-      border: none; 
+      background: #111827;
+      border: 1px solid #111827; 
       color: #fff; 
       padding: 10px 20px; 
-      border-radius: 10px; 
+      border-radius: 8px; 
       cursor: pointer; 
       font-weight: 600;
       font-size: 13px;
       letter-spacing: 0.2px;
       transition: all 0.2s;
-      box-shadow: 0 8px 16px rgba(249, 115, 22, 0.25);
+      box-shadow: none;
     }
     button:hover { 
       transform: translateY(-1px);
-      box-shadow: 0 12px 22px rgba(249, 115, 22, 0.3);
+      box-shadow: none;
     }
     button:active {
       transform: translateY(0);
@@ -143,18 +143,18 @@
     .form-group select {
       padding: 10px 12px;
       border: 1px solid #e2e8f0;
-      border-radius: 10px;
+      border-radius: 8px;
       font-size: 14px;
       background: #fff;
       transition: all 0.2s;
-      box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.04);
+      box-shadow: none;
     }
     
     .form-group input:focus,
     .form-group select:focus {
       outline: none;
-      border-color: #f97316;
-      box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.15);
+      border-color: #111827;
+      box-shadow: none;
     }
     
     .form-group textarea {
@@ -173,9 +173,9 @@
       align-items: center;
       gap: 8px;
       padding: 10px 12px;
-      background: #fff7ed;
-      border-radius: 10px;
-      border: 1px solid rgba(249, 115, 22, 0.2);
+      background: #f9fafb;
+      border-radius: 8px;
+      border: 1px solid #e5e7eb;
     }
     
     .checkbox-group input[type="checkbox"] {
@@ -207,8 +207,10 @@
     }
     
     .btn-secondary {
-      background: #1f2933;
-      box-shadow: 0 6px 14px rgba(30, 41, 59, 0.2);
+      background: transparent;
+      color: #111827;
+      border: 1px solid #111827;
+      box-shadow: none;
     }
     
     .btn-secondary:hover {
@@ -252,8 +254,8 @@
       margin-bottom: 24px;
       padding: 14px;
       background: #fff;
-      border-radius: 14px;
-      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      border: 1px solid #e5e7eb;
     }
     
     .chart-container:last-child {
@@ -269,12 +271,12 @@
       margin-top: 14px;
       padding: 12px;
       background: #f8fafc;
-      border-radius: 12px;
-      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      border: 1px solid #e5e7eb;
     }
     
     #downloads a {
-      color: #f97316;
+      color: #111827;
       text-decoration: none;
       font-weight: 500;
       margin-right: 16px;
@@ -341,10 +343,10 @@
     }
 
     .input-card {
-      border: 1px solid #e2e8f0;
+      border: 1px solid #e5e7eb;
       border-radius: 10px;
       padding: 16px;
-      background: #f7fafc;
+      background: #f9fafb;
       margin-bottom: 12px;
     }
 
@@ -413,7 +415,7 @@
     }
 
     .vars-table th {
-      background: #edf2f7;
+      background: #f3f4f6;
       font-weight: 600;
       color: #2d3748;
     }
@@ -431,7 +433,7 @@
     }
 
     @keyframes floatIn {
-      from { opacity: 0; transform: translateY(12px); }
+      from { opacity: 0; transform: translateY(8px); }
       to { opacity: 1; transform: translateY(0); }
     }
   </style>
