@@ -4,47 +4,75 @@
   <meta charset="utf-8"/>
   <title>FMU Web Runner</title>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Space+Grotesk:wght@500;600&display=swap" rel="stylesheet">
   <style>
     * { box-sizing: border-box; }
     body { 
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; 
+      font-family: "Space Grotesk", "IBM Plex Sans", "Segoe UI", sans-serif; 
       margin: 0; 
-      background: #f5f7fa; 
-      color: #2d3748; 
-      line-height: 1.6;
+      background: radial-gradient(1200px 600px at 10% -10%, #f2f8ff 0%, #f8fbf7 50%, #f7f7ff 100%);
+      color: #1f2933; 
+      line-height: 1.5;
     }
     header { 
-      background: linear-gradient(135deg, #000000 0%, #000000 100%); 
-      color: #fff; 
-      padding: 20px 24px; 
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      background: linear-gradient(120deg, #0b1220 0%, #142038 65%, #17273f 100%);
+      color: #f8fafc; 
+      padding: 28px 24px; 
+      box-shadow: 0 6px 24px rgba(8, 15, 30, 0.25);
     }
-    h1 { margin: 0; font-size: 24px; font-weight: 600; }
-    .container { max-width: 1400px; margin: 0 auto; padding: 0 16px; }
+    h1 { margin: 0; font-size: 26px; font-weight: 600; letter-spacing: 0.4px; }
+    .header-subtitle {
+      margin-top: 6px;
+      font-size: 13px;
+      color: rgba(248, 250, 252, 0.78);
+    }
+    .header-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .badge {
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(248, 250, 252, 0.3);
+      font-size: 11px;
+      letter-spacing: 0.2px;
+      text-transform: uppercase;
+    }
+    .container { max-width: 1200px; margin: 0 auto; padding: 0 18px; }
     .card { 
-      background: #fff; 
-      margin: 20px 0; 
-      padding: 24px; 
-      border-radius: 12px; 
-      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-      border: 1px solid #e2e8f0;
+      background: rgba(255, 255, 255, 0.9); 
+      margin: 18px 0; 
+      padding: 22px; 
+      border-radius: 16px; 
+      box-shadow: 0 10px 26px rgba(18, 28, 45, 0.08);
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      backdrop-filter: blur(6px);
+      animation: floatIn 0.7s ease both;
     }
+    .card:nth-of-type(1) { animation-delay: 0.05s; }
+    .card:nth-of-type(2) { animation-delay: 0.12s; }
+    .card:nth-of-type(3) { animation-delay: 0.19s; }
     .card h2 { 
-      margin: 0 0 20px 0; 
+      margin: 0 0 18px 0; 
       font-size: 18px; 
       font-weight: 600; 
-      color: #1a202c;
+      color: #0f172a;
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 10px;
     }
     .card h2::before {
       content: '';
       display: inline-block;
-      width: 4px;
-      height: 20px;
-      background: linear-gradient(135deg, #000000 0%, #000000 100%);
-      border-radius: 2px;
+      width: 14px;
+      height: 14px;
+      background: linear-gradient(135deg, #f97316 0%, #facc15 100%);
+      border-radius: 4px;
+      box-shadow: 0 0 0 6px rgba(249, 115, 22, 0.12);
     }
     
     .upload-area {
@@ -55,34 +83,36 @@
     }
     
     input[type="file"] {
-      padding: 10px 16px;
-      border: 2px dashed #cbd5e0;
-      border-radius: 8px;
-      background: #f7fafc;
+      padding: 10px 14px;
+      border: 1.5px dashed #cbd5e1;
+      border-radius: 10px;
+      background: #f8fafc;
       cursor: pointer;
       flex: 1;
-      min-width: 250px;
+      min-width: 220px;
+      font-size: 13px;
     }
     input[type="file"]:hover {
-      border-color: #667eea;
-      background: #edf2f7;
+      border-color: #fb923c;
+      background: #fff7ed;
     }
     
     button { 
-      background: linear-gradient(135deg, #000000 0%, #000000 100%);
+      background: linear-gradient(135deg, #f97316 0%, #f59e0b 100%);
       border: none; 
       color: #fff; 
-      padding: 10px 24px; 
-      border-radius: 8px; 
+      padding: 10px 20px; 
+      border-radius: 10px; 
       cursor: pointer; 
-      font-weight: 500;
-      font-size: 14px;
+      font-weight: 600;
+      font-size: 13px;
+      letter-spacing: 0.2px;
       transition: all 0.2s;
-      box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
+      box-shadow: 0 8px 16px rgba(249, 115, 22, 0.25);
     }
     button:hover { 
       transform: translateY(-1px);
-      box-shadow: 0 4px 8px rgba(102, 126, 234, 0.4);
+      box-shadow: 0 12px 22px rgba(249, 115, 22, 0.3);
     }
     button:active {
       transform: translateY(0);
@@ -90,9 +120,9 @@
     
     .form-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 16px;
-      margin-bottom: 20px;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 14px;
+      margin-bottom: 18px;
     }
     
     .form-group {
@@ -102,26 +132,29 @@
     }
     
     .form-group label {
-      font-size: 13px;
-      font-weight: 500;
-      color: #4a5568;
+      font-size: 12px;
+      font-weight: 600;
+      color: #475569;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
     }
     
     .form-group input,
     .form-group select {
       padding: 10px 12px;
       border: 1px solid #e2e8f0;
-      border-radius: 6px;
+      border-radius: 10px;
       font-size: 14px;
       background: #fff;
       transition: all 0.2s;
+      box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.04);
     }
     
     .form-group input:focus,
     .form-group select:focus {
       outline: none;
-      border-color: #000000;
-      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+      border-color: #f97316;
+      box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.15);
     }
     
     .form-group textarea {
@@ -140,9 +173,9 @@
       align-items: center;
       gap: 8px;
       padding: 10px 12px;
-      background: #f7fafc;
-      border-radius: 6px;
-      border: 1px solid #e2e8f0;
+      background: #fff7ed;
+      border-radius: 10px;
+      border: 1px solid rgba(249, 115, 22, 0.2);
     }
     
     .checkbox-group input[type="checkbox"] {
@@ -158,24 +191,24 @@
     }
     
     .section-title {
-      font-size: 15px;
+      font-size: 14px;
       font-weight: 600;
-      color: #2d3748;
-      margin: 20px 0 12px 0;
+      color: #0f172a;
+      margin: 18px 0 10px 0;
       padding-bottom: 8px;
-      border-bottom: 2px solid #e2e8f0;
+      border-bottom: 1px solid #e2e8f0;
     }
     
     .actions {
       display: flex;
-      gap: 12px;
-      margin-top: 20px;
+      gap: 10px;
+      margin-top: 18px;
       flex-wrap: wrap;
     }
     
     .btn-secondary {
-      background: #718096;
-      box-shadow: 0 2px 4px rgba(113, 128, 150, 0.3);
+      background: #1f2933;
+      box-shadow: 0 6px 14px rgba(30, 41, 59, 0.2);
     }
     
     .btn-secondary:hover {
@@ -183,9 +216,9 @@
     }
     
     pre { 
-      background: #f7fafc; 
+      background: #f8fafc; 
       padding: 16px; 
-      border-radius: 8px; 
+      border-radius: 12px; 
       overflow: auto; 
       font-size: 13px;
       border: 1px solid #e2e8f0;
@@ -193,11 +226,11 @@
     }
     
     details {
-      margin-top: 16px;
+      margin-top: 14px;
       border: 1px solid #e2e8f0;
-      border-radius: 8px;
+      border-radius: 12px;
       padding: 12px;
-      background: #f7fafc;
+      background: #f8fafc;
     }
     
     details summary {
@@ -217,9 +250,9 @@
     .chart-container {
       width: 100%;
       margin-bottom: 24px;
-      padding: 16px;
+      padding: 14px;
       background: #fff;
-      border-radius: 8px;
+      border-radius: 14px;
       border: 1px solid #e2e8f0;
     }
     
@@ -233,15 +266,15 @@
     }
     
     #downloads {
-      margin-top: 16px;
+      margin-top: 14px;
       padding: 12px;
-      background: #f7fafc;
-      border-radius: 8px;
+      background: #f8fafc;
+      border-radius: 12px;
       border: 1px solid #e2e8f0;
     }
     
     #downloads a {
-      color: #667eea;
+      color: #f97316;
       text-decoration: none;
       font-weight: 500;
       margin-right: 16px;
@@ -259,15 +292,15 @@
     }
     
     .status-success {
-      background: #c6f6d5;
-      color: #22543d;
-      border: 1px solid #9ae6b4;
+      background: #dcfce7;
+      color: #166534;
+      border: 1px solid #86efac;
     }
     
     .status-error {
-      background: #fed7d7;
-      color: #742a2a;
-      border: 1px solid #fc8181;
+      background: #fee2e2;
+      color: #991b1b;
+      border: 1px solid #fca5a5;
     }
     
     .array-input {
@@ -396,6 +429,11 @@
       font-weight: 600;
       color: #2d3748;
     }
+
+    @keyframes floatIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
   </style>
   <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
 </head>
@@ -403,6 +441,12 @@
   <header>
     <div class="container">
       <h1>FMU Runner</h1>
+      <div class="header-subtitle">Upload, tune, and run FMUs without the command line.</div>
+      <div class="header-badges">
+        <span class="badge">Fast setup</span>
+        <span class="badge">Live plots</span>
+        <span class="badge">CSV export</span>
+      </div>
     </div>
   </header>
 
@@ -883,16 +927,16 @@
           
           // Color palette for different graphs
           const colors = [
-            '#667eea', // Purple
-            '#f56565', // Red
-            '#48bb78', // Green
-            '#ed8936', // Orange
-            '#4299e1', // Blue
-            '#9f7aea', // Violet
-            '#ed64a6', // Pink
-            '#38b2ac', // Teal
-            '#ecc94b', // Yellow
-            '#f687b3'  // Rose
+            '#f97316', // Orange
+            '#0ea5e9', // Sky
+            '#22c55e', // Green
+            '#f43f5e', // Rose
+            '#eab308', // Amber
+            '#14b8a6', // Teal
+            '#f59e0b', // Gold
+            '#10b981', // Emerald
+            '#38bdf8', // Light blue
+            '#fb7185'  // Pink
           ];
           
           // Create a separate graph for each output
