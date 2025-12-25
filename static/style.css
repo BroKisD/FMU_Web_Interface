@@ -6,8 +6,8 @@ h1 { margin: 0; font-size: 20px; }
 .row { display: flex; gap: 12px; }
 textarea#configText { width: 100%; min-height: 280px; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 13px; padding: 10px; }
 .sidebar { min-width: 200px; display: flex; flex-direction: column; gap: 8px; }
-pre { background: #f3f4f6; padding: 10px; border-radius: 6px; overflow: auto; }
-button { background: #1f6feb; border: none; color: #fff; padding: 8px 12px; border-radius: 6px; cursor: pointer; }
+pre { background: #f3f4f6; padding: 10px; overflow: auto; }
+button { background: #1f6feb; border: none; color: #fff; padding: 8px 12px; cursor: pointer; }
 button:hover { opacity: 0.9; }
 input[type="file"] { margin-right: 8px; }
 #downloads a { margin-right: 12px; }

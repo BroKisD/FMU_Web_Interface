@@ -1,0 +1,98 @@
+# to use this template, first define following variables in your CI configuration (Gitlab Project/Group settings --> CI)
+#  OS4_URL: openshift address 
+#  OS4_DOCKER_REGISTRY:
+#  OS4_CI_PROJECT: project name of your OS4 project ok
+#  OS4_TOKEN: openshift token ok 
+#  optional: In Project Settings (!) set OS4_DEPLOYMENT_NAME: name of the deployed app in OpenShift
+workflow:
+  rules:
+    - if: '$CI_COMMIT_BRANCH != "main"'
+      when: never
+
+    - changes:
+        - 'README.md'
+      when: never
+
+    - when: always
+
+
+include:
+  - project: xelerator/x-ci-pipeline/yml-templates/common
+    ref: master
+    file: variables.yml
+ 
+variables:
+  # OS4_IMAGE_STREAM: $OS4_CI_PROJECT/$TAG
+  OS4_DEPLOYMENT_NAME: $CI_PROJECT_NAME
+  DOCKER_PROXY: http://rb-proxy-sl.bosch.com:8080/
+  OS4_DOCKER_REGISTRY: default-route-openshift-image-registry.apps.de21pro.osh.ipz002.internal.bosch.cloud
+  OS4_APPLICATION_NAME: fmu-runner
+ 
+stages:
+    - build
+    - push
+    - deploy
+ 
+build_docker:
+  image: code.exaas.bosch.com:6000/xelerator/tools/images/docker-openshift:latest
+  stage: build
+  script:
+    - echo "Hint - You will have to set the VERSION variable in your configuration, if your Dockerfile needs this."
+    - docker build . -t $TAG:latest --pull --build-arg http_proxy=$DOCKER_PROXY --build-arg https_proxy=$DOCKER_PROXY --build-arg no_proxy=$NO_PROXY --build-arg GOPRIVATE=*.bosch.com --build-arg HTTP_PROXY=$DOCKER_PROXY --build-arg HTTPS_PROXY=$DOCKER_PROXY --build-arg NO_PROXY=$NO_PROXY --build-arg VERSION=$VERSION
+
+  # except:
+  #   - main
+docker_push_gitlab_registry:
+  image: code.exaas.bosch.com:6000/xelerator/tools/images/docker-openshift:latest
+  stage: push
+  
+  variables:
+    PUSH_TAG: $GITLAB_DOCKER_REGISTRY/$CI_PROJECT_PATH:$CI_COMMIT_REF_SLUG
+  script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - docker tag $TAG:latest $PUSH_TAG
+    - docker push $PUSH_TAG 
+OS4_deploy:
+  image: code.exaas.bosch.com:6000/xelerator/tools/images/docker-openshift:latest
+  stage: deploy
+  environment:
+    name: $CI_COMMIT_REF_NAME
+    url: http://$OS4_DEPLOYMENT_NAME-$OS4_CI_PROJECT.apps.de21pro.osh.ipz002.internal.bosch.cloud
+  variables:
+    OS4_PROXY_HTTP_PROXY: http://10.143.0.177:8080/
+    OS4_PROXY_HTTPS_PROXY: http://10.143.0.177:8080/
+    OS4_PROXY_NO_PROXY: 127.0.0.1,localhost,.cluster.local,.svc,.internal.bosch.cloud,.inside.bosch.cloud,.bgn,.de.bosch.com,.bosch.com,.bicadm.com,.bosch-iot-cloud.com
+    OS4_PROXY_https_proxy: http://10.143.0.177:8080/
+    OS4_PROXY_http_proxy: http://10.143.0.177:8080/
+    OS4_PROXY_no_proxy: 127.0.0.1,localhost,.cluster.local,.svc,.internal.bosch.cloud,.inside.bosch.cloud,.bgn,.de.bosch.com,.bosch.com,.bicadm.com,.bosch-iot-cloud.com
+  before_script:
+    - apk update && apk add --no-cache jq
+    - export NO_PROXY=$OS4_URL
+    - echo $OS4_CI_PROJECT
+    - oc login --server=$OS4_API_URL --token="$OS4_TOKEN"
+    - oc project $OS4_CI_PROJECT
+     
+  script:
+    - docker tag $TAG:latest $OS4_DOCKER_REGISTRY/$OS4_CI_PROJECT/$NAME:latest
+    - docker login -u admin -p $(oc whoami -t) https://$OS4_DOCKER_REGISTRY
+    - docker push $OS4_DOCKER_REGISTRY/$OS4_CI_PROJECT/$NAME:latest
+    - app_name="${OS4_DEPLOYMENT_NAME}"
+    - app_name_slug="${OS4_APPLICATION_NAME}"
+    - >
+      if oc get deployment $app_name_slug; then
+          # Update deployment with new docker image if application already exists
+          echo "Application $app_name_slug already exists, updating..."
+          OS4_CONTAINER_NAME=$(oc get deployment $app_name_slug -o json | jq -r '.spec.template.spec.containers[0].name') # get container Name
+          oc set image deployment/$app_name_slug $OS4_CONTAINER_NAME="$OS4_CI_PROJECT/$NAME:latest"
+ 
+      else
+          echo "Application $app_name does not exist, creating..."
+          oc new-app --image-stream="$OS4_CI_PROJECT/$NAME:latest" --name="$app_name_slug"
+          echo "Expose service and route"
+          # oc create route edge --service=$app_name_slug --hostname=test-internal-example-app.bosch.com
+          oc create route edge --service=$app_name_slug
+          oc set resources deployment $app_name_slug --limits=cpu=2,memory=4Gi --requests=cpu=100m,memory=500m
+      fi
+    - env | grep '^OS4_PROXY_' | sed 's/OS4_PROXY_//g' | xargs -r oc set env deployment/$app_name_slug --env || echo "No OS4_PROXY_ vars are set" # set env
+  only:
+    - main

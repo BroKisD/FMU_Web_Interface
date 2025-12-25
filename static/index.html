@@ -85,7 +85,7 @@
     input[type="file"] {
       padding: 10px 14px;
       border: 1px dashed #cbd5e1;
-      border-radius: 8px;
+      border-radius: 0;
       background: #f9fafb;
       cursor: pointer;
       flex: 1;
@@ -102,20 +102,20 @@
       border: 1px solid #111827; 
       color: #fff; 
       padding: 10px 20px; 
-      border-radius: 8px; 
+      border-radius: 0;
       cursor: pointer; 
-      font-weight: 600;
+      font-weight: 500;
       font-size: 13px;
-      letter-spacing: 0.2px;
-      transition: all 0.2s;
+      letter-spacing: 0.3px;
+      transition: all 0.15s;
       box-shadow: none;
     }
     button:hover { 
-      transform: translateY(-1px);
-      box-shadow: none;
+      background: #1f2937;
+      border-color: #1f2937;
     }
     button:active {
-      transform: translateY(0);
+      background: #0f172a;
     }
     
     .form-grid {
@@ -143,7 +143,7 @@
     .form-group select {
       padding: 10px 12px;
       border: 1px solid #e2e8f0;
-      border-radius: 8px;
+      border-radius: 0;
       font-size: 14px;
       background: #fff;
       transition: all 0.2s;
@@ -160,7 +160,7 @@
     .form-group textarea {
       padding: 10px 12px;
       border: 1px solid #e2e8f0;
-      border-radius: 6px;
+      border-radius: 0;
       font-size: 13px;
       font-family: ui-monospace, Menlo, Consolas, monospace;
       background: #f7fafc;
@@ -174,7 +174,7 @@
       gap: 8px;
       padding: 10px 12px;
       background: #f9fafb;
-      border-radius: 8px;
+      border-radius: 0;
       border: 1px solid #e5e7eb;
     }
     
@@ -214,13 +214,24 @@
     }
     
     .btn-secondary:hover {
-      box-shadow: 0 4px 8px rgba(113, 128, 150, 0.4);
+      background: #f9fafb;
+    }
+
+    .btn-danger {
+      background: #dc2626;
+      color: #fff;
+      border: 1px solid #dc2626;
+    }
+
+    .btn-danger:hover {
+      background: #b91c1c;
+      border-color: #b91c1c;
     }
     
     pre { 
       background: #f8fafc; 
       padding: 16px; 
-      border-radius: 12px; 
+      border-radius: 0;
       overflow: auto; 
       font-size: 13px;
       border: 1px solid #e2e8f0;
@@ -230,7 +241,7 @@
     details {
       margin-top: 14px;
       border: 1px solid #e2e8f0;
-      border-radius: 12px;
+      border-radius: 0;
       padding: 12px;
       background: #f8fafc;
     }
@@ -254,7 +265,7 @@
       margin-bottom: 24px;
       padding: 14px;
       background: #fff;
-      border-radius: 12px;
+      border-radius: 0;
       border: 1px solid #e5e7eb;
     }
     
@@ -271,7 +282,7 @@
       margin-top: 14px;
       padding: 12px;
       background: #f8fafc;
-      border-radius: 10px;
+      border-radius: 0;
       border: 1px solid #e5e7eb;
     }
     
@@ -288,7 +299,7 @@
     
     .status-message {
       padding: 12px 16px;
-      border-radius: 8px;
+      border-radius: 0;
       margin-top: 12px;
       font-size: 14px;
     }
@@ -304,6 +315,12 @@
       color: #991b1b;
       border: 1px solid #fca5a5;
     }
+
+    .status-warning {
+      background: #fef3c7;
+      color: #92400e;
+      border: 1px solid #fde047;
+    }
     
     .array-input {
       display: flex;
@@ -314,7 +331,7 @@
     .array-item {
       padding: 8px;
       background: #edf2f7;
-      border-radius: 4px;
+      border-radius: 0;
       font-family: ui-monospace, Menlo, Consolas, monospace;
       font-size: 12px;
     }
@@ -339,12 +356,12 @@
     .btn-small {
       padding: 6px 12px;
       font-size: 12px;
-      border-radius: 6px;
+      border-radius: 0;
     }
 
     .input-card {
       border: 1px solid #e5e7eb;
-      border-radius: 10px;
+      border-radius: 0;
       padding: 16px;
       background: #f9fafb;
       margin-bottom: 12px;
@@ -390,7 +407,7 @@
     .input-row input {
       padding: 8px 10px;
       border: 1px solid #e2e8f0;
-      border-radius: 6px;
+      border-radius: 0;
       font-size: 13px;
       background: #fff;
     }
@@ -432,6 +449,73 @@
       color: #2d3748;
     }
 
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-overlay.active {
+      display: flex;
+    }
+
+    .modal {
+      background: white;
+      border: 1px solid #e5e7eb;
+      max-width: 500px;
+      width: 90%;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+    }
+
+    .modal-header {
+      padding: 20px 24px;
+      border-bottom: 1px solid #e5e7eb;
+    }
+
+    .modal-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: #0f172a;
+      margin: 0;
+    }
+
+    .modal-body {
+      padding: 24px;
+    }
+
+    .modal-footer {
+      padding: 16px 24px;
+      border-top: 1px solid #e5e7eb;
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+    }
+
+    .session-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      background: rgba(248, 250, 252, 0.1);
+      border: 1px solid rgba(248, 250, 252, 0.2);
+      font-size: 11px;
+      letter-spacing: 0.2px;
+    }
+
+    .session-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #22c55e;
+    }
+
     @keyframes floatIn {
       from { opacity: 0; transform: translateY(8px); }
       to { opacity: 1; transform: translateY(0); }
@@ -448,6 +532,10 @@
         <span class="badge">Fast setup</span>
         <span class="badge">Live plots</span>
         <span class="badge">CSV export</span>
+        <span class="session-indicator" id="sessionIndicator" style="display: none;">
+          <span class="session-dot"></span>
+          <span>Session Active</span>
+        </span>
       </div>
     </div>
   </header>
@@ -577,8 +665,35 @@
     </div>
   </div>
 
+  <!-- Warning Modal -->
+  <div id="warningModal" class="modal-overlay">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title">WARNING: Clear Previous Session?</h3>
+      </div>
+      <div class="modal-body">
+        <p>Uploading a new FMU will clear all previous uploads and simulation results.</p>
+        <p style="margin-top: 12px; font-size: 14px; color: #64748b;">This action cannot be undone.</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" id="btnModalCancel">Cancel</button>
+        <button class="btn-danger" id="btnModalConfirm">Clear & Upload</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     const $ = (id) => document.getElementById(id);
+    let hasActiveSession = false;
+
+    function updateSessionIndicator() {
+      const indicator = $('sessionIndicator');
+      if (hasActiveSession) {
+        indicator.style.display = 'inline-flex';
+      } else {
+        indicator.style.display = 'none';
+      }
+    }
 
     // Helper to gather config from form
     function getConfig() {
@@ -818,15 +933,12 @@
       return inputs;
     }
 
-    $('btnUpload').onclick = async () => {
-      const file = $('fmuFile').files[0];
-      if (!file) {
-        $('uploadStatus').innerHTML = '<div class="status-message status-error">Please select a .fmu file first.</div>';
-        return;
-      }
-      
+    async function handleUpload(file, clearFirst = false) {
       const fd = new FormData();
       fd.append('file', file);
+      if (clearFirst) {
+        fd.append('clearFirst', 'true');
+      }
       $('uploadStatus').innerHTML = '<div class="status-message">Uploading...</div>';
       
       try {
@@ -838,7 +950,14 @@
           return;
         }
         
+        hasActiveSession = true;
+        updateSessionIndicator();
         $('uploadStatus').innerHTML = '<div class="status-message status-success">✓ Uploaded successfully<br>Host platform: ' + js.template.platform + '</div>';
+        
+        // Clear results area
+        $('chartsContainer').innerHTML = '';
+        $('downloads').innerHTML = '';
+        $('logs').textContent = 'Upload complete. Ready to run simulation.';
         
         // Populate form with template config
         if (js.template.config) {
@@ -852,6 +971,49 @@
         renderInfo(js.template.info);
       } catch (e) {
         $('uploadStatus').innerHTML = '<div class="status-message status-error">Error: ' + e.message + '</div>';
+      }
+    }
+
+    $('btnUpload').onclick = async () => {
+      const file = $('fmuFile').files[0];
+      if (!file) {
+        $('uploadStatus').innerHTML = '<div class="status-message status-error">Please select a .fmu file first.</div>';
+        return;
+      }
+
+      // Check if there's an active session
+      if (hasActiveSession) {
+        // Show warning modal
+        $('warningModal').classList.add('active');
+        
+        // Store the file for later use
+        window.pendingUploadFile = file;
+      } else {
+        // No active session, upload directly
+        await handleUpload(file, false);
+      }
+    };
+
+    $('btnModalCancel').onclick = () => {
+      $('warningModal').classList.remove('active');
+      $('fmuFile').value = ''; // Clear file input
+      window.pendingUploadFile = null;
+    };
+
+    $('btnModalConfirm').onclick = async () => {
+      $('warningModal').classList.remove('active');
+      
+      if (window.pendingUploadFile) {
+        await handleUpload(window.pendingUploadFile, true);
+        window.pendingUploadFile = null;
+        $('fmuFile').value = ''; // Clear file input
+      }
+    };
+
+    // Close modal on overlay click
+    $('warningModal').onclick = (e) => {
+      if (e.target === $('warningModal')) {
+        $('btnModalCancel').click();
       }
     };
 

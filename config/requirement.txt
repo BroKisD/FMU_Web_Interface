@@ -1,7 +1,0 @@
-
-plotly 
-flask 
-numpy 
-pandas 
-fmpy 
-pyyaml

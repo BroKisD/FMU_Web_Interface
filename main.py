@@ -4,8 +4,12 @@ import io
 import json
 import tempfile
 import traceback
-from datetime import datetime
+import shutil
+import atexit
+import signal
+from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -16,13 +20,131 @@ from fmpy import platform as fmpy_platform
 from fmpy.validation import validate_fmu
 
 
+
+
 app = Flask(__name__, static_url_path='', static_folder='static')
 
 # Simple in-memory store for last uploaded FMU per process (for demo)
 SESSION: Dict[str, Any] = {}
 
+# Upload directory path
+UPLOAD_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')
+
+
+# ---------- Cleanup Functions ----------
+
+def cleanup_old_files(max_age_hours=24):
+    """
+    Remove files older than max_age_hours from the uploads directory.
+    This helps clean up orphaned files from server restarts or crashes.
+    """
+    if not os.path.exists(UPLOAD_DIR):
+        return
+    
+    now = datetime.now()
+    cutoff = now - timedelta(hours=max_age_hours)
+    removed_count = 0
+    
+    try:
+        for filename in os.listdir(UPLOAD_DIR):
+            filepath = os.path.join(UPLOAD_DIR, filename)
+            
+            # Skip if not a file
+            if not os.path.isfile(filepath):
+                continue
+            
+            # Get file modification time
+            file_mtime = datetime.fromtimestamp(os.path.getmtime(filepath))
+            
+            # Remove if older than cutoff
+            if file_mtime < cutoff:
+                try:
+                    os.remove(filepath)
+                    removed_count += 1
+                    print(f"Cleaned up old file: {filename}")
+                except Exception as e:
+                    print(f"Failed to remove {filename}: {e}")
+    
+    except Exception as e:
+        print(f"Error during cleanup: {e}")
+    
+    if removed_count > 0:
+        print(f"Cleanup complete: removed {removed_count} old file(s)")
+
+
+def cleanup_all_uploads():
+    """
+    Remove all files from the uploads directory.
+    Used during shutdown or for complete cleanup.
+    """
+    if not os.path.exists(UPLOAD_DIR):
+        return
+    
+    try:
+        for filename in os.listdir(UPLOAD_DIR):
+            filepath = os.path.join(UPLOAD_DIR, filename)
+            if os.path.isfile(filepath):
+                try:
+                    os.remove(filepath)
+                    print(f"Removed: {filename}")
+                except Exception as e:
+                    print(f"Failed to remove {filename}: {e}")
+    except Exception as e:
+        print(f"Error during full cleanup: {e}")
+
+
+def register_cleanup_handlers():
+    """
+    Register cleanup handlers for graceful shutdown.
+    """
+    def cleanup_handler(signum=None, frame=None):
+        print("\nCleaning up before shutdown...")
+        cleanup_all_uploads()
+        if signum:
+            print(f"Received signal {signum}, exiting.")
+        exit(0)
+    
+    # Register for normal exit
+    atexit.register(cleanup_all_uploads)
+    
+    # Register for signals (Ctrl+C, kill, etc.)
+    signal.signal(signal.SIGINT, cleanup_handler)
+    signal.signal(signal.SIGTERM, cleanup_handler)
+
 
 # ---------- Helpers ----------
+
+def clear_session_files():
+    """Clean up all files from previous session."""
+    files_to_remove = []
+    
+    # Get paths from session
+    if 'fmu_path' in SESSION:
+        files_to_remove.append(SESSION['fmu_path'])
+    if 'input_file' in SESSION:
+        files_to_remove.append(SESSION['input_file'])
+    if 'result_files' in SESSION:
+        files_to_remove.extend(SESSION['result_files'])
+    
+    # Remove files
+    removed = []
+    errors = []
+    for path in files_to_remove:
+        try:
+            if path and os.path.exists(path):
+                os.remove(path)
+                removed.append(path)
+        except Exception as e:
+            errors.append(f"Failed to remove {path}: {str(e)}")
+    
+    # Clear session
+    SESSION.clear()
+    
+    return {
+        "removed": removed,
+        "errors": errors
+    }
+
 
 def normalize_inputs(input_cfg: Optional[List]) -> Optional[List]:
     """Convert string numbers to floats; keep [name, [[t, v], ...]] shape."""
@@ -168,7 +290,7 @@ def generate_template(fmu_path: str) -> Dict[str, Any]:
             "coSimulation": md.coSimulation is not None,
             "modelExchange": md.modelExchange is not None
         },
-        "platform": fmpy_platform,  # Using the correct variable name
+        "platform": fmpy_platform,
         "info": {
             "fmiVersion": md.fmiVersion,
             "modelName": getattr(md, 'modelName', 'Unknown'),
@@ -201,10 +323,37 @@ def index():
     return send_from_directory('static', 'index.html')
 
 
+@app.post('/api/clear-session')
+def clear_session():
+    """Clear all previous uploads and results."""
+    try:
+        result = clear_session_files()
+        return jsonify({
+            "ok": True,
+            "message": f"Cleared {len(result['removed'])} file(s)",
+            "removed": result['removed'],
+            "errors": result['errors']
+        })
+    except Exception as e:
+        return jsonify({
+            "ok": False,
+            "error": str(e),
+            "trace": traceback.format_exc()
+        }), 500
+
+
 @app.post('/api/upload-fmu')
 def upload_fmu():
     try:
         print("Debug: Starting file upload")
+        
+        # Check if this is a request to clear before upload
+        clear_first = request.form.get('clearFirst', 'false').lower() == 'true'
+        
+        if clear_first:
+            print("Debug: Clearing previous session before upload")
+            clear_session_files()
+        
         if 'file' not in request.files:
             print("Debug: No file part in request")
             return jsonify({"error": "No file"}), 400
@@ -221,14 +370,13 @@ def upload_fmu():
             return jsonify({"error": "Only .fmu files allowed"}), 400
 
         # Create uploads directory if it doesn't exist
-        upload_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')
-        print(f"Debug: Creating/verifying upload directory: {upload_dir}")
-        os.makedirs(upload_dir, exist_ok=True)
+        print(f"Debug: Creating/verifying upload directory: {UPLOAD_DIR}")
+        os.makedirs(UPLOAD_DIR, exist_ok=True)
         
         # Create a unique filename to prevent collisions
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         safe_filename = f"{timestamp}_{file.filename}"
-        fmu_path = os.path.join(upload_dir, safe_filename)
+        fmu_path = os.path.join(UPLOAD_DIR, safe_filename)
         print(f"Debug: Saving to {fmu_path}")
         
         # Save the file
@@ -242,6 +390,7 @@ def upload_fmu():
         
         # Remember last FMU
         SESSION['fmu_path'] = fmu_path
+        SESSION['result_files'] = []  # Reset result files list
         print("Debug: Upload and processing completed successfully")
         return jsonify({"ok": True, "template": tmpl, "fmuPath": fmu_path})
         
@@ -261,7 +410,7 @@ def upload_fmu():
             "type": type(e).__name__,
             "trace": traceback.format_exc()
         }), 500
-
+    
 
 @app.post('/api/run')
 def run_simulation():
@@ -324,6 +473,10 @@ def run_simulation():
         out_csv = os.path.join(os.path.dirname(fmu_path), f"result_{ts}.csv")
         df.to_csv(out_csv, index=False)
 
+        # Track result files for cleanup
+        if 'result_files' not in SESSION:
+            SESSION['result_files'] = []
+        SESSION['result_files'].append(out_csv)
        
         return jsonify({
             "ok": True,
@@ -353,11 +506,10 @@ def upload_input_file():
         if not file.filename.lower().endswith('.csv'):
             return jsonify({"ok": False, "error": "Only .csv files allowed"}), 400
 
-        upload_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')
-        os.makedirs(upload_dir, exist_ok=True)
+        os.makedirs(UPLOAD_DIR, exist_ok=True)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         safe_filename = f"{timestamp}_{file.filename}"
-        input_path = os.path.join(upload_dir, safe_filename)
+        input_path = os.path.join(UPLOAD_DIR, safe_filename)
         file.save(input_path)
 
         SESSION['input_file'] = input_path
@@ -390,5 +542,12 @@ def statics(path):
 
 
 if __name__ == '__main__':
+    # Register cleanup handlers for graceful shutdownn
+    register_cleanup_handlers()
+    
+    # Clean up old files on startup (older than 24 hours)
+    print("Running startup cleanup...")
+    cleanup_old_files(max_age_hours=24)
+    
     # For local dev; use a proper WSGI server in production (gunicorn / waitress)
-    app.run(host='127.0.0.1', port=8000, debug=True)
+    app.run(host='0.0.0.0', port=8080, debug=True)

@@ -1,7 +1,0 @@
-# To activate this environment, use
-#
-#     $ conda activate FMUenv
-#
-# To deactivate an active environment, use
-#
-#     $ conda deactivate
