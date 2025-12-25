@@ -952,7 +952,9 @@
         
         hasActiveSession = true;
         updateSessionIndicator();
-        $('uploadStatus').innerHTML = '<div class="status-message status-success">✓ Uploaded successfully<br>Host platform: ' + js.template.platform + '</div>';
+        const hostPlatform = js.template.platform || 'unknown';
+        const fmuPlatforms = (js.template.supported_platforms || []).join(', ') || 'unknown';
+        $('uploadStatus').innerHTML = '<div class="status-message status-success">✓ Uploaded successfully<br>Host platform: ' + hostPlatform + '<br>FMU platforms: ' + fmuPlatforms + '</div>';
         
         // Clear results area
         $('chartsContainer').innerHTML = '';
