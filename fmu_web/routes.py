@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-import os
+import io
+import tempfile
 import traceback
 from datetime import datetime
 from pathlib import Path
@@ -28,10 +29,6 @@ def _get_store() -> SessionStore:
     return current_app.extensions["session_store"]
 
 
-def _ensure_upload_dir(path: Path) -> None:
-    path.mkdir(parents=True, exist_ok=True)
-
-
 @api.route("/")
 def index():
     cfg = _get_config()
@@ -57,7 +54,6 @@ def clear_session():
 
 @api.post("/api/upload-fmu")
 def upload_fmu():
-    cfg = _get_config()
     store = _get_store()
     try:
         print("Debug: Starting file upload")
@@ -82,24 +78,22 @@ def upload_fmu():
             print("Debug: Invalid file type")
             return jsonify({"error": "Only .fmu files allowed"}), 400
 
-        print(f"Debug: Creating/verifying upload directory: {cfg.upload_dir}")
-        _ensure_upload_dir(cfg.upload_dir)
+        data = file.read()
+        if not data:
+            return jsonify({"error": "Empty FMU file"}), 400
 
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        safe_filename = f"{timestamp}_{file.filename}"
-        fmu_path = cfg.upload_dir / safe_filename
-        print(f"Debug: Saving to {fmu_path}")
-
-        file.save(fmu_path)
-        print("Debug: File saved successfully")
+        token = store.set_fmu(file.filename, data)
 
         print("Debug: Generating template...")
-        tmpl = generate_template(str(fmu_path))
+        with tempfile.TemporaryDirectory() as tmpdir:
+            fmu_path = Path(tmpdir) / file.filename
+            fmu_path.write_bytes(data)
+            tmpl = generate_template(str(fmu_path))
+        tmpl["config"]["fmu"] = None
         print("Debug: Template generated successfully")
 
-        store.set_fmu_path(str(fmu_path))
         print("Debug: Upload and processing completed successfully")
-        return jsonify({"ok": True, "template": tmpl, "fmuPath": str(fmu_path)})
+        return jsonify({"ok": True, "template": tmpl, "fmuPath": token})
 
     except Exception as exc:
         print(f"Debug: Error in upload_fmu: {str(exc)}")
@@ -128,8 +122,9 @@ def run_simulation():
     print("Running simulation")
     payload = request.get_json(force=True)
     store = _get_store()
-    fmu_path = payload.get("fmu") or store.fmu_path
-    if not fmu_path or not os.path.exists(fmu_path):
+    fmu_bytes = store.fmu_bytes
+    fmu_name = store.fmu_name or "model.fmu"
+    if not fmu_bytes:
         return jsonify({"ok": False, "error": "FMU not found. Upload first."}), 400
 
     logs: List[str] = []
@@ -137,10 +132,9 @@ def run_simulation():
 
     raw_inputs = payload.get("inputs", None)
     signals = build_structured_input(raw_inputs)
-    input_file = payload.get("input_file")
+    input_token = payload.get("input_file")
 
     kwargs = dict(
-        filename=fmu_path,
         validate=payload.get("validate"),
         start_time=payload.get("start_time"),
         stop_time=payload.get("stop_time"),
@@ -159,57 +153,65 @@ def run_simulation():
     if "remote_platform" in payload:
         kwargs["remote_platform"] = payload.get("remote_platform", "auto")
 
-    if input_file:
-        if not os.path.exists(input_file):
+    if input_token:
+        if input_token != store.input_token or not store.input_bytes:
             return jsonify({"ok": False, "error": "Input file not found. Upload again."}), 400
-        kwargs["input_file"] = input_file
     elif signals is not None:
         kwargs["input"] = signals
 
     kwargs = {k: v for k, v in kwargs.items() if v is not None}
 
     try:
-        do_validate = payload.get("validate", True)
-        if do_validate:
-            problems = validate_if_enabled(fmu_path, do_validate)
-            if problems:
-                for problem in problems:
-                    logs.append(f"{problem}")
+        with tempfile.TemporaryDirectory() as tmpdir:
+            fmu_path = Path(tmpdir) / fmu_name
+            fmu_path.write_bytes(fmu_bytes)
+            kwargs["filename"] = str(fmu_path)
 
-        remote_platform = payload.get("remote_platform", "auto")
-        can_sim, platform_logs = platform_supports_fmu(fmu_path, remote_platform)
-        if not can_sim:
-            logs.extend(platform_logs)
-            return (
-                jsonify(
-                    {
-                        "ok": False,
-                        "error": f"FMU does not support the current platform ({fmpy_platform}).",
-                        "logs": logs,
-                    }
-                ),
-                400,
+            if input_token and store.input_bytes:
+                input_name = store.input_name or "input.csv"
+                input_path = Path(tmpdir) / input_name
+                input_path.write_bytes(store.input_bytes)
+                kwargs["input_file"] = str(input_path)
+
+            do_validate = payload.get("validate", True)
+            if do_validate:
+                problems = validate_if_enabled(str(fmu_path), do_validate)
+                if problems:
+                    for problem in problems:
+                        logs.append(f"{problem}")
+
+            remote_platform = payload.get("remote_platform", "auto")
+            can_sim, platform_logs = platform_supports_fmu(str(fmu_path), remote_platform)
+            if not can_sim:
+                logs.extend(platform_logs)
+                return (
+                    jsonify(
+                        {
+                            "ok": False,
+                            "error": f"FMU does not support the current platform ({fmpy_platform}).",
+                            "logs": logs,
+                        }
+                    ),
+                    400,
+                )
+
+            result = simulate_fmu(**kwargs)
+
+            df = pd.DataFrame(result)
+            csv_bytes = df.to_csv(index=False).encode("utf-8")
+            csv_name = f"result_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+            csv_token = store.add_result(csv_name, csv_bytes)
+
+            return jsonify(
+                {
+                    "ok": True,
+                    "columns": df.columns.tolist(),
+                    "rows": df.to_dict(orient="records"),
+                    "csv": csv_token,
+                    "logs": logs,
+                    "total_rows": len(df),
+                }
             )
-
-        result = simulate_fmu(**kwargs)
-
-        df = pd.DataFrame(result)
-        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-        out_csv = Path(fmu_path).parent / f"result_{ts}.csv"
-        df.to_csv(out_csv, index=False)
-
-        store.add_result_file(str(out_csv))
-
-        return jsonify(
-            {
-                "ok": True,
-                "columns": df.columns.tolist(),
-                "rows": df.to_dict(orient="records"),
-                "csv": str(out_csv),
-                "logs": logs,
-                "total_rows": len(df),
-            }
-        )
 
     except Exception as exc:
         msg = str(exc)
@@ -225,7 +227,6 @@ def run_simulation():
 
 @api.post("/api/upload-input")
 def upload_input_file():
-    cfg = _get_config()
     store = _get_store()
     try:
         if "file" not in request.files:
@@ -236,14 +237,9 @@ def upload_input_file():
         if not file.filename.lower().endswith(".csv"):
             return jsonify({"ok": False, "error": "Only .csv files allowed"}), 400
 
-        _ensure_upload_dir(cfg.upload_dir)
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        safe_filename = f"{timestamp}_{file.filename}"
-        input_path = cfg.upload_dir / safe_filename
-        file.save(input_path)
-
-        store.set_input_file(str(input_path))
-        return jsonify({"ok": True, "path": str(input_path)})
+        data = file.read()
+        token = store.set_input(file.filename, data)
+        return jsonify({"ok": True, "path": token})
     except Exception as exc:
         return (
             jsonify({"ok": False, "error": str(exc), "type": type(exc).__name__, "trace": traceback.format_exc()}),
@@ -253,27 +249,21 @@ def upload_input_file():
 
 @api.get("/api/download")
 def download():
-    cfg = _get_config()
     store = _get_store()
     path = request.args.get("path")
     if not path:
         return jsonify({"error": "File not found"}), 404
-
-    allowed = set(store.result_files)
-    if store.fmu_path:
-        allowed.add(store.fmu_path)
-    if store.input_file:
-        allowed.add(store.input_file)
-
-    resolved = str(Path(path).resolve())
-    if resolved not in allowed or not Path(resolved).exists():
+    result = store.get_result(path)
+    if not result:
         return jsonify({"error": "File not found"}), 404
-
-    if not str(resolved).startswith(str(cfg.upload_dir.resolve())):
-        return jsonify({"error": "File not found"}), 404
-
+    filename, data = result
     try:
-        return send_file(resolved, as_attachment=True, download_name=os.path.basename(resolved))
+        return send_file(
+            io.BytesIO(data),
+            as_attachment=True,
+            download_name=filename,
+            mimetype="text/csv",
+        )
     except Exception as exc:
         return jsonify({"error": str(exc)}), 500
 

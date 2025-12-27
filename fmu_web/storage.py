@@ -3,14 +3,19 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
+from uuid import uuid4
 
 
 @dataclass
 class SessionState:
-    fmu_path: Optional[str] = None
-    input_file: Optional[str] = None
-    result_files: List[str] = field(default_factory=list)
+    fmu_token: Optional[str] = None
+    fmu_name: Optional[str] = None
+    fmu_bytes: Optional[bytes] = None
+    input_token: Optional[str] = None
+    input_name: Optional[str] = None
+    input_bytes: Optional[bytes] = None
+    result_blobs: Dict[str, Tuple[str, bytes]] = field(default_factory=dict)
 
 
 class SessionStore:
@@ -18,49 +23,68 @@ class SessionStore:
         self._state = SessionState()
 
     @property
-    def fmu_path(self) -> Optional[str]:
-        return self._state.fmu_path
+    def fmu_token(self) -> Optional[str]:
+        return self._state.fmu_token
 
     @property
-    def input_file(self) -> Optional[str]:
-        return self._state.input_file
+    def fmu_name(self) -> Optional[str]:
+        return self._state.fmu_name
 
     @property
-    def result_files(self) -> List[str]:
-        return list(self._state.result_files)
+    def fmu_bytes(self) -> Optional[bytes]:
+        return self._state.fmu_bytes
 
-    def set_fmu_path(self, path: str) -> None:
-        self._state.fmu_path = path
+    @property
+    def input_token(self) -> Optional[str]:
+        return self._state.input_token
 
-    def set_input_file(self, path: str) -> None:
-        self._state.input_file = path
+    @property
+    def input_name(self) -> Optional[str]:
+        return self._state.input_name
 
-    def add_result_file(self, path: str) -> None:
-        self._state.result_files.append(path)
+    @property
+    def input_bytes(self) -> Optional[bytes]:
+        return self._state.input_bytes
+
+    @property
+    def result_tokens(self) -> List[str]:
+        return list(self._state.result_blobs.keys())
+
+    def set_fmu(self, name: str, data: bytes) -> str:
+        token = _new_token()
+        self._state.fmu_token = token
+        self._state.fmu_name = name
+        self._state.fmu_bytes = data
+        self._state.input_token = None
+        self._state.input_name = None
+        self._state.input_bytes = None
+        self._state.result_blobs = {}
+        return token
+
+    def set_input(self, name: str, data: bytes) -> str:
+        token = _new_token()
+        self._state.input_token = token
+        self._state.input_name = name
+        self._state.input_bytes = data
+        return token
+
+    def add_result(self, name: str, data: bytes) -> str:
+        token = _new_token()
+        self._state.result_blobs[token] = (name, data)
+        return token
+
+    def get_result(self, token: str) -> Optional[Tuple[str, bytes]]:
+        return self._state.result_blobs.get(token)
 
     def clear(self, upload_dir: Path) -> Dict[str, List[str]]:
-        files_to_remove: List[str] = []
-        if self._state.fmu_path:
-            files_to_remove.append(self._state.fmu_path)
-        if self._state.input_file:
-            files_to_remove.append(self._state.input_file)
-        files_to_remove.extend(self._state.result_files)
-
         removed: List[str] = []
-        errors: List[str] = []
-        for path in files_to_remove:
-            if not _is_within_dir(path, upload_dir):
-                continue
-            try:
-                file_path = Path(path)
-                if file_path.exists():
-                    file_path.unlink()
-                    removed.append(path)
-            except Exception as exc:
-                errors.append(f"Failed to remove {path}: {exc}")
-
+        if self._state.fmu_token:
+            removed.append(self._state.fmu_token)
+        if self._state.input_token:
+            removed.append(self._state.input_token)
+        removed.extend(self._state.result_blobs.keys())
         self._state = SessionState()
-        return {"removed": removed, "errors": errors}
+        return {"removed": removed, "errors": []}
 
 
 def cleanup_old_files(upload_dir: Path, max_age_hours: int) -> int:
@@ -88,10 +112,5 @@ def cleanup_old_files(upload_dir: Path, max_age_hours: int) -> int:
     return removed_count
 
 
-def _is_within_dir(path: str, upload_dir: Path) -> bool:
-    try:
-        resolved = Path(path).resolve()
-        base = upload_dir.resolve()
-        return base == resolved or base in resolved.parents
-    except Exception:
-        return False
+def _new_token() -> str:
+    return f"mem:{uuid4().hex}"
